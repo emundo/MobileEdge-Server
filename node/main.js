@@ -1,14 +1,16 @@
-var https = require("https");
-var fs = require('fs');
-
-var options = {
-  key: fs.readFileSync('server.key'),
-  cert: fs.readFileSync('server.crt'),
-  ca: [fs.readFileSync('cacert.pem')]
+var https = require('https'),
+    fs = require('fs');
+var sslOptions = {
+  key: fs.readFileSync('./ssl/server.key'),
+  cert: fs.readFileSync('./ssl/server.crt'),
+  ca: fs.readFileSync('./ssl/ca.crt'),
+//  requestCert: true,
+  rejectUnauthorized: false
 };
-https.createServer(options, function(request, response) {
+var secureServer = https.createServer(sslOptions,function(request, response) {
   response.writeHead(200, {"Content-Type": "text/plain"});
   response.write("Hello World");
   response.end();
-}).listen(8888);
-console.log("Server has started.");
+}).listen('8888', function(){
+  console.log("Secure Express server listening on port 8888");
+});
