@@ -8,3 +8,4 @@ various packages installable from npm:
     grunt-nodemon
     node-inspector
     sodium
+    dgeni
