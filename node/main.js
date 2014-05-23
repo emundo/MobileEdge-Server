@@ -1,5 +1,7 @@
 var https = require('https'),
     fs = require('fs');
+var token = require("./libs/token.js");
+var util = require("./libs/util.js");
 var sslOptions = {
   key: fs.readFileSync('./ssl/server.key'),
   cert: fs.readFileSync('./ssl/server.crt'),
@@ -12,5 +14,7 @@ var secureServer = https.createServer(sslOptions,function(request, response) {
   response.write("Hello World");
   response.end();
 }).listen('8888', function(){
-  console.log("Secure Express server listening on port 8888");
+  console.log("Secure server listening on port 8888");
+  console.log(token.create_id("hi there!!! ", null));
+  console.log(util.xor("AAAA", "ZZZZ"));
 });
