@@ -131,6 +131,7 @@ exports.verify_id = verify_id;
  * @return {Uint8Array} - the HMAC created from key and data as 32 bytes
  */
 function hmac(key, data) {
+    myutil.debug("Hashing:" + data);
     var opad = new Uint8Array(64),
         ipad = new Uint8Array(64); 
     for (var i = 0; i < opad.length; i++)

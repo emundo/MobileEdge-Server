@@ -1,3 +1,7 @@
+/**
+ * @file Main file of the application. Server is started here.
+ * @author Raphael Arias <raphael.arias@e-mundo.de>
+ */
 var https = require('https'),
     util = require('util'),
     fs = require('fs');
@@ -16,13 +20,4 @@ var secureServer = https.createServer(sslOptions,function(request, response) {
   response.end();
 }).listen('8888', function(){
   myutil.log("Secure server listening on port 8888");
-  var new_id;
-  token.create_id(function(id) {
-      myutil.debug(id);
-      new_id = id; 
-  });
-  token.verify_id(new_id, function (result) {
-      myutil.debug(result);
-  });
-  myutil.debug(myutil.xor("AAAA", "ZZZZ"));
 });
