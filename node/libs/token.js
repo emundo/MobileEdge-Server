@@ -8,10 +8,17 @@ var myutil = require("./util.js");
 var util = require('util');
 myutil.debug(nacl.to_hex(nacl.random_bytes(16)));
 
-var cv = nacl.encode_utf8
-var toHex = nacl.to_hex
+var cv = nacl.encode_utf8;
+var toHex = nacl.to_hex;
 
-var key = cv("d2cf52201f5fe179a9174b3925351159")
+var key = cv("d2cf52201f5fe179a9174b3925351159");
+
+var VALID   = 0;
+var EXPIRED = 1;
+var INVALID = 2;
+exports.VALID   = VALID;
+exports.EXPIRED = EXPIRED;
+exports.INVALID = INVALID;
 
 /**
  * Creates an ID-Token from data and calls a given callback function
@@ -32,6 +39,19 @@ function _create_id(data, callback) {
 }
 
 /**
+ * Creates a suitable Date object to be used as an expiry date.
+ * @param {Number} days - the number of days until the expiry date.
+ * @return a Date object with the new expiry date.
+ */
+function makeExpiryDate(days) {
+    var expiry = new Date();
+    expiry.setDate(expiry.getDate() + days);
+    expiry.setHours(0); expiry.setMinutes(0); expiry.setSeconds(0);
+    expiry.setMilliseconds(0);
+    return expiry;
+}
+
+/**
  * Create a 'new' identity with expiry date in a week's time.
  * To prevent information leakage through generation time information,
  * the expiry time is always set to 00:00:00:00.
@@ -39,36 +59,67 @@ function _create_id(data, callback) {
  *      It takes one argument, the token that was created.
  */
 function create_id(callback) {
-    var expiry = new Date();
-    expiry.setDate(expiry.getDate() + 7);
-    expiry.setHours(0); expiry.setMinutes(0); expiry.setSeconds(0);
-    expiry.setMilliseconds(0);
+    var expiry = makeExpiryDate(7);
     var data = {'expires'   : expiry,
                 'nonce'     : toHex(nacl.crypto_box_random_nonce())};
-    var token = _create_id(data, callback);
+    _create_id(data, callback);
 }
 exports.create_id = create_id;
 
 /**
- * Verify a given identity token. 
+ * Takes a (valid) ID token and creates a new one which wraps the old one
+ * inside. This should be useful if a ID should be needed more than, say, 7 days.
+ * @param old - the "old" ID token
+ * @param callback - function to be called with the newly refreshed token.
+ */
+function refresh_id(old, callback) {
+    var verif = _verify_id(old);
+    if (verif !== VALID) {
+        callback(null);
+    }
+    var new_data = {
+        'expires' : makeExpiryDate(7),
+        'nonce' : toHex(nacl.crypto_box_random_nonce()),
+        'previous' : old['mac']
+    };
+    _create_id(new_data, callback);
+}
+exports.refresh_id = refresh_id;
+
+/**
+ * Verifies an ID token. 
+ * @param token - the token to verify
+ * @return the verification result. This can be 
+ *  0 (VALID), 
+ *  1 (EXPIRED),
+ *  2 (INVALID),
+ *  3 (EXPIRED AND INVALID)
+ */
+function _verify_id(token) {
+    var result = VALID;
+    if (token['info']['expires'] < new Date()) {
+        result = EXPIRED;
+    }
+    if (token['mac'] !== toHex(hmac(key, JSON.stringify(token['info'])))) {
+        result |= INVALID;
+    }
+    return result;
+}
+
+/**
+ * Verify a given identity token and do a callback. 
  * Is it valid, i.e.
  *  Does the info match the HMAC?
  *  Has it expired? 
  * @param token - the token to be verified.
  * @param callback - the function to call when token was verified.
- *      It takes 1 argument, the result of the verification, which can
- *      be either "EXPIRED", "INVALID" or "VALID".
+ *      It takes 1 argument, the result of the verification, which is a
+ *      value between 0 and 3, inclusively. A calling function should
+ *      only accept the token if it is VALID (0).
  */
 function verify_id(token, callback) {
     myutil.debug('Verifying token:', token);
-    if (token['info']['expires'] < new Date())
-        callback('EXPIRED');
-    if (token['mac'] === toHex(hmac(key, JSON.stringify(token['info'])))) {
-        myutil.log('ok.');
-        callback('VALID');
-    } else {
-        callback('INVALID');
-    }
+    callback(_verify_id(token));
 }
 exports.verify_id = verify_id;
 

@@ -9,3 +9,7 @@ various packages installable from npm:
     node-inspector
     sodium
     dgeni
+
+installed from npm globally:
+    mocha
+    grunt-cli
