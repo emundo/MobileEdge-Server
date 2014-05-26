@@ -15,7 +15,14 @@ var secureServer = https.createServer(sslOptions,function(request, response) {
   response.write("Hello World");
   response.end();
 }).listen('8888', function(){
-  util.log("Secure server listening on port 8888");
-  util.debug(token.create_id("hi there!!! ", null));
-  util.debug(myutil.xor("AAAA", "ZZZZ"));
+  myutil.log("Secure server listening on port 8888");
+  var new_id;
+  token.create_id(function(id) {
+      myutil.debug(id);
+      new_id = id; 
+  });
+  token.verify_id(new_id, function (result) {
+      myutil.debug(result);
+  });
+  myutil.debug(myutil.xor("AAAA", "ZZZZ"));
 });

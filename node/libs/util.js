@@ -13,6 +13,7 @@ var util = require('util');
 function isString(s) {
     return typeof(s) === 'string' || s instanceof String;
 }
+exports.isString = isString;
 
 /**
  * Handmade bitwise xor for special non-integer types. JavaScript only correctly
@@ -37,10 +38,14 @@ function xor(a, b) {
             result += String.fromCharCode(((i >= a.length)? 0 : a.charCodeAt(i)) ^ ((i >= b.length)? 0 : b.charCodeAt(i)));
         }
     } else {
-        util.log("I dont know how to xor these types...");
+        log("I dont know how to xor these types...");
     }
     return result;
 }
-
-exports.isString = isString;
 exports.xor = xor;
+
+log = console.log;
+exports.log = log;
+
+debug = console.log;
+exports.debug = debug;
