@@ -6,7 +6,7 @@ var nacl_factory = require("js-nacl");
 var nacl = nacl_factory.instantiate();
 var myutil = require("./util.js");
 var util = require('util');
-myutil.debug(nacl.to_hex(nacl.random_bytes(16)));
+//myutil.debug(nacl.to_hex(nacl.random_bytes(16)));
 
 var cv = nacl.encode_utf8;
 var toHex = nacl.to_hex;
@@ -73,8 +73,7 @@ exports.create_id = create_id;
  * @param callback - function to be called with the newly refreshed token.
  */
 function refresh_id(old, callback) {
-    var verif = _verify_id(old);
-    if (verif !== VALID) {
+    if (_verify_id(old) !== VALID) {
         callback(null);
     }
     var new_data = {
@@ -132,10 +131,10 @@ exports.verify_id = verify_id;
  * @return {Uint8Array} - the HMAC created from key and data as 32 bytes
  */
 function hmac(key, data) {
-    var opad = new Uint8Array(64); 
+    var opad = new Uint8Array(64),
+        ipad = new Uint8Array(64); 
     for (var i = 0; i < opad.length; i++)
         opad[i] = 0x5c;
-    var ipad = new Uint8Array(64); 
     for (var i = 0; i < ipad.length; i++)
         ipad[i] = 0x5c;
     return nacl.crypto_hash_sha256(cv(myutil.xor(key,opad) + toHex(nacl.crypto_hash_sha256(cv(toHex(myutil.xor(key, ipad)) + data)))));
