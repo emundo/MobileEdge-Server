@@ -35,6 +35,7 @@ function create_id(data, callback) {
  * RFC2104 definition of HMAC (https://tools.ietf.org/html/rfc2104) 
  * @param {Uint8Array} key - the secret key used for the HMAC
  * @param {string} data - the data to be embedded in the HMAC
+ * @return {Uint8Array} - the HMAC created from key and data as 64 bytes
  */
 function hmac(key, data) {
     opad = new Uint8Array(64); 

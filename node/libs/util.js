@@ -3,9 +3,12 @@
  * @author Raphael Arias <raphael.arias@e-mundo.de>
  */
 
+var util = require('util');
+
 /**
  * Checks if variable is a String. Why create a function for this? Well... JavaScript...
  * @param {*} s - the potential string
+ * @return {Boolean} - true if s is a string object or of type string
  */
 function isString(s) {
     return typeof(s) === 'string' || s instanceof String;
@@ -17,6 +20,7 @@ function isString(s) {
  * Works for Strings and Uint8Array so far.
  * @param a - one item to be xored to
  * @param b - the other item
+ * @return {string|Uint8Array} - the XORed result
  */
 function xor(a, b) {
     var result;
@@ -33,7 +37,7 @@ function xor(a, b) {
             result += String.fromCharCode(((i >= a.length)? 0 : a.charCodeAt(i)) ^ ((i >= b.length)? 0 : b.charCodeAt(i)));
         }
     } else {
-        console.log("I dont know how to xor these types...");
+        util.log("I dont know how to xor these types...");
     }
     return result;
 }
