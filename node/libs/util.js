@@ -19,11 +19,26 @@
 var util = require('util');
 
 /**
+ * util log function. This is a wrapper for console.log() at the moment, 
+ * but might be changed to a log to file or some logger functionality later.
+ * Takes a variable length list of parameters.
+ */
+var log = exports.log = console.log;
+
+/**
+ * util debug log function. This is a wrapper for console.log() at the moment, 
+ * but might be changed to a log to file, to a NOOP or some logger functionality later.
+ * Takes a variable length list of parameters.
+ */
+var debug = exports.debug = console.log;
+
+/**
  * Checks if variable is a String. Why create a function for this? Well... JavaScript...
  * @param {*} s - the potential string
  * @return {Boolean} - true if s is a string object or of type string
  */
-exports.isString = function isString(s) {
+var isString = exports.isString = 
+function isString(s) {
     return typeof(s) === 'string' || s instanceof String;
 }
 
@@ -37,7 +52,8 @@ exports.isString = function isString(s) {
  */
 exports.xor = function xor(a, b) {
     var result;
-    if (a instanceof Uint8Array && b instanceof Uint8Array) {
+    if (    (a instanceof Uint8Array || a instanceof Buffer) 
+         && (b instanceof Uint8Array || b instanceof Buffer)) {
         var len = Math.max(a.length, b.length);
         result = new Uint8Array(len);
         for (var i = 0; i < len; i++) {
@@ -72,7 +88,4 @@ exports.map = function map(f, obj) {
     }
     return obj;
 };
-var log = exports.log = console.log;
-
-var debug = exports.debug = console.log;
 

@@ -13,7 +13,9 @@
 
 /**
  * @file Testing for the token-related functionality.
+ * @author Raphael Arias <raphael.arias@e-mundo.de>
  */
+
 var expect = require('chai').expect,
     main = require('../main.js'),
     token = require('../libs/token.js'),
@@ -21,25 +23,41 @@ var expect = require('chai').expect,
     cu = require('../libs/crypto_util.js'),
     myutil = require('../libs/util.js');
 
+/**
+ * Tests for HMAC functionality.
+ */
 describe('HMAC functionality', function(){
+    /**
+     * Test the crypto_util HMAC function.
+     */
     describe('#hmac()', function(){
+        /**
+         * The crypto_util hmac function (using NaCl) should yield the same
+         * result as the crypto_util _hmac function (using Node's own crypto
+         * module.
+         */
         it('should equal crypto builtin hmac', function(){
-            var key = nacl.encode_utf8('key'),
-                attempt = cu.hmac(key, ''),
-                other = cu._hmac(key, '');
-            myutil.debug(nacl.to_hex(attempt), nacl.to_hex(other));
+            // generate a random key every time
+            var key = nacl.random_bytes(40);
+            var attempt = cu.hmac(key, 'MobileEdge is a great thing'),
+                other = cu._hmac(key, 'MobileEdge is a great thing');
+            myutil.debug('comparing HMACs:', nacl.to_hex(attempt), nacl.to_hex(other));
             expect(nacl.to_hex(attempt)).to.equal(nacl.to_hex(other));
-     //           hmac = crypto.createHmac('sha256', nacl.to_hex('000000'));
-     //       hmac.update('');
-     //       var comp = hmac.digest();
-     //       myutil.log(comp);
-     //       expect(myutil.toHex(attempt)).to.equal(comp.toString('hex'));
         });
     });
 });
 
+/**
+ * Tests for Token creation.
+ */
 describe('Token Creation', function(){
+    /**
+     * Test the create_id functionality.
+     */
     describe('#create_id()', function(){
+        /**
+         * Make sure the create_id function returns a token object.
+         */
         it('should return an ID token object', function(){
             token.create_id(function(new_token){
                 myutil.debug(new_token);
@@ -51,32 +69,47 @@ describe('Token Creation', function(){
     });
 });
 
+/**
+ * Tests for creation and verification.
+ */
 describe('Token creation & verification', function(){
+    /**
+     * Test create vs verify.
+     */
     describe('#create_id() & verify_id()', function(){
-        it('created token should be valid', function(){
+        /**
+         * Check the created token is recognized as valid by the verify() function.
+         */
+        it('created token should be valid', function(done){
             var new_id;
             token.create_id(function(id) {
-                new_id = id; 
+                token.verify_id(id, function (result) {
+                    expect(result).to.equal(token.VALID);
+                });
             });
-            token.verify_id(new_id, function (result) {
-                expect(result).to.equal(token.VALID);
-            });
-           
+            done();
         });
     });
+
+    /**
+     * Combine create, refresh and verify.
+     */
     describe('# create_id() & refresh_id() & verify_id()', function(){
-        it('created token should be able to be refreshed and the result should be valid', function(){
+        /**
+         * Test that the created token can be refreshed and the result of
+         * refreshing is again a valid token.
+         */
+        it('created token should be able to be refreshed and the result should be valid', function(done){
             var old_id, new_id;
-            token.create_id(function(id) {
-                old_id = id; 
+            token.create_id(function(old_id){
+                token.refresh_id(old_id, function(new_id) {
+                    expect(new_id.info.previous, 'correct reference to old mac').to.equal(old_id.mac);
+                    token.verify_id(new_id, function(result) {
+                        expect(result, 'validity').to.equal(token.VALID);
+                    })
+                })
             });
-            token.refresh_id(old_id, function(id) {
-                new_id = id; 
-            });
-            token.verify_id(new_id, function (result) {
-                expect(result, 'validity').to.equal(token.VALID);
-            });
-            expect(new_id.info.previous, 'correct reference to old mac').to.equal(old_id.mac);
+            done();
         });
     });
 });
