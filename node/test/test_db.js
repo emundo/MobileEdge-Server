@@ -21,11 +21,12 @@ var expect = require('chai').expect,
     myutil = require('../libs/util.js'),
     mongoose = require('mongoose');
 
-/**
+var Prekey = mongoose.model('Prekey');
+/*
  * The application's database connection.
  */
 var conn = global.db_conn;
-/**
+/*
  * Tests for the database connection.
  */
 describe('DB connection', function(){
@@ -49,28 +50,42 @@ describe('DB write', function(){
     /**
      * Get a Prekey model.
      */
-    var Prekey = mongoose.model('Prekey');
     /**
      * Tests for the save function.
      */
     describe('#save()', function(){
+        before(function(done) {
+            Prekey.remove({ key_id: 41 }).exec();
+            done();
+        });
         /**
          * Test the save function returns no error.
          */
         it('should write data to the database', function(done){
             var pk = new Prekey();
-            pk.key_id = 27;
+            pk.key_id = 41;
+            pk.id_mac = 'TESTTEST';
             pk.base_key = 'TESTTEST';
             pk.save(function(err, obj, numAffected) {
                 expect(err).to.not.exist;
-                done();
             });
+            done();
+        });
+        after(function(done){
+            Prekey.remove({ key_id: 41 }, done);
         });
     });
     /**
      * Tests for the find() function.
      */
     describe('#find()', function(){
+        before(function(done){
+            var pk = new Prekey();
+            pk.key_id = 27;
+            pk.id_mac = 'TESTTEST';
+            pk.base_key = 'TESTTEST';
+            pk.save(done);
+        });
         /**
          * This tests that the data written previously is now 
          * retrievable from the database.
@@ -84,6 +99,9 @@ describe('DB write', function(){
                 done();
             });
         });
+        after(function(done){
+            Prekey.remove({ key_id: 27 }, done);
+        });
     });
     /**
      * Tests for the remove function.
@@ -96,7 +114,7 @@ describe('DB write', function(){
             Prekey.remove({ key_id: 27}).exec();
             var promise = Prekey.find({key_id: 27}).exec();
             promise.onFulfill(function (arg) {
-                expect(arg).to.be.empty;
+                expect(arg, 'test data prekey id 27').to.be.empty;
                 done();
             });
         });

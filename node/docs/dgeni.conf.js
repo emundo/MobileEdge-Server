@@ -34,6 +34,10 @@ module.exports = function(config) {
       // the outputPath. The basePath allows us to ensure that the "relative" path to each source
       // file is accurate no matter where the source files are relative to the projectPath.
       basePath: path.resolve(__dirname, '..')
+    },
+    {
+      pattern: 'models/**/*.js',
+      basePath: path.resolve(__dirname, '..')
     }
   ]);
 

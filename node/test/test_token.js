@@ -41,7 +41,6 @@ describe('HMAC functionality', function(){
             var key = nacl.random_bytes(40);
             var attempt = cu.hmac(key, 'MobileEdge is a great thing'),
                 other = cu._hmac(key, 'MobileEdge is a great thing');
-            myutil.debug('comparing HMACs:', nacl.to_hex(attempt), nacl.to_hex(other));
             expect(nacl.to_hex(attempt)).to.equal(nacl.to_hex(other));
         });
     });
@@ -60,7 +59,6 @@ describe('Token Creation', function(){
          */
         it('should return an ID token object', function(){
             token.create_id(function(new_token){
-                myutil.debug(new_token);
                 expect(new_token.info, 'property: expires').to.have.property('expires');
                 expect(new_token.info, 'property: nonce').to.have.property('nonce').with.length(48);
                 expect(new_token.mac, 'mac length').to.have.length(64);

@@ -1,8 +1,16 @@
 Dependencies
-node
-npm
-mongodb (installed as explained on http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/)
+Note:
+    when certificate checking of the https-host fails, wget can be used with option --no-check-certificates
+    This is ugly and should not be done for a productive system but can be useful when trying to set up the
+    testing environment.
+
+    node
+    npm
+    mongodb (installed as explained on http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/)
+Note: When failing to get the GPG key from the keyserver directly (firewall issues maybe?) the key can be
+    taken from this repository and added to the keychain using 'apt-key add mongodb-gpgkey'
             //libsodium 0.5.0 (https://download.libsodium.org/libsodium/releases/libsodium-0.5.0.tar.gz)
+
 various packages installable from npm:
     nodemon
     grunt
@@ -16,6 +24,7 @@ various packages installable from npm:
     mongoose
     bson
     hkdf
+    sinon
 installed from npm globally:
     mocha
     grunt-cli
