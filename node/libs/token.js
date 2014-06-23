@@ -86,7 +86,7 @@ exports.create_id = create_id;
  */
 exports.refresh_id = function refresh_id(old, callback) {
     if (_verify_id(old) !== VALID) {
-        callback(null);
+        callback(new Error('ERROR: Previous ID invalid.'));
     }
     var new_data = {
         'expires' : makeExpiryDate(7),
