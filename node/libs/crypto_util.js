@@ -27,7 +27,7 @@ var mu = require('./util.js'); // My Util
  * ATTENTION: For some reason this used to differ from the HMAC implementation
  * using Node.crypto (below, _hmac). It now seems to be consistent, although none of the
  * implementations match http://www.freeformatter.com/hmac-generator.html , but that 
- * might be their fault.
+ * might be there fault.
  *
  * @param {Uint8Array} key - the secret key used for the HMAC
  * @param {string} data - the data to be embedded in the HMAC
@@ -56,16 +56,7 @@ function _hmac(key, data) {
 }
 exports.hmac =  hmac;
 exports._hmac = _hmac;
-
-/**
- * Derives keys using HKDF.
- * @param {Uint8Array} inputKeyMaterial the input key material
- * @param info info to be woven into key derivation
- * @param length the length of the key material to be derived
- * @param callback the function to call with the key when finished
- */
 function hkdf(inputKeyMaterial, info, length, callback) {
-    inputKeyMaterial = nacl.decode_latin1(inputKeyMaterial);
     var hkdf = new HKDF('sha256', 'salty', inputKeyMaterial),
         result = {};
     hkdf.derive(info , length, function(key) {
