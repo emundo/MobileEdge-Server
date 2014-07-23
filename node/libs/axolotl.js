@@ -20,8 +20,10 @@ var mongoose = require('mongoose'),
     fs = require('fs'),
     mu = require('./util.js'),
     cu = require('./crypto_util.js'),
-    schema = require('../models/schema.js');
+    schema = require('../models/schema.js'),
+    ds = require('../models/DataSourceMongoose.js');
 
+var DataSource = ds.DataSource;
 var Identity = mongoose.model('Identity'),
     AxolotlState = mongoose.model('AxolotlState');
 
@@ -76,6 +78,12 @@ function makeIdentity(id_token, keyExchangeMsg, callback) {
     ident.save(callback);
 }
 
+/**
+ * Key derivation wrapper just for Bob.
+ * @param mine Bob's key exchange message
+ * @param their Alice's key exchange message
+ * @param callback function to call when done
+ */
 var deriveKeysBob = exports.deriveKeysBob =
 function deriveKeysBob(mine, their, callback) {
     var part1 = nacl.to_hex(nacl.crypto_scalarmult(mine.eph0.boxSk, their.id)),
@@ -83,6 +91,13 @@ function deriveKeysBob(mine, their, callback) {
         part3 = nacl.to_hex(nacl.crypto_scalarmult(mine.eph0.boxSk, their.eph0));
     deriveKeys(part1, part2, part3, callback)
 }
+
+/**
+ * Key derivation wrapper just for Alice.
+ * @param mine Alice's key exchange message
+ * @param their Bob's key exchange message
+ * @param callback function to call when done
+ */
 var deriveKeysAlice = exports.deriveKeysAlice =
 function deriveKeysAlice(mine, their, callback) {
     var part1 = nacl.to_hex(nacl.crypto_scalarmult(mine.id.boxSk, their.eph0)),
@@ -91,6 +106,13 @@ function deriveKeysAlice(mine, their, callback) {
     deriveKeys(part1, part2, part3, callback)
 }
 
+/**
+ * Key derivation wrapper common to Alice and Bob.
+ * @param part1 first part of the input material
+ * @param part2 second part of the input material
+ * @param part3 third part of the input material
+ * @param callback function to call when done
+ */
 function deriveKeys(part1, part2, part3, callback) {
     var master_key = nacl.crypto_hash(nacl.from_hex(part1+part2+part3)); // Note that this is SHA512 and not SHA256. It does not have to be.
     cu.hkdf(master_key, 'MobileEdge', 5*32, function(key){
@@ -120,7 +142,9 @@ function deriveKeys(part1, part2, part3, callback) {
  */
 exports.keyAgreement = 
 function keyAgreement(keyExchangeMsg, callback) {
-    var state = new AxolotlState();
+    var dsm = new DataSource(),
+        state = dsm.axolotl_state.create();
+    //var state = new AxolotlState();
     var myId = getIDKey(),                  // B
         myEph0 = newDHParam(),       // B_0
         myEph1 = newDHParam();       // B_1
@@ -144,6 +168,12 @@ function keyAgreement(keyExchangeMsg, callback) {
         state.counter_recv = 0;
         state.previous_counter_send = 0;
         state.ratchet_flag = false;
+        dsm.axolotl_state.save(function(err) {
+            if (err) {
+                mu.log(err);
+                callback(err);
+            }
+        });
         callback(null, {
                     'id': nacl.to_hex(myId.boxPk), 
                     'eph0' : nacl.to_hex(myEph0.boxPk), 
@@ -311,7 +341,7 @@ function try_skipped_header_and_message_keys(state, msg) {
         if (plainMsg instanceof Error) { // this message key was not the right one
             continue;
         }
-        delete state.skipped_hk_mk[i];// delete skipped keys, FIXME: does this do what I think it does?
+        state.skipped_hk_mk.splice(i,1);// delete skipped keys, FIXME: does this do what I think it does?
         return { 'state' : state, 'msg' : plainMsg }
     }
     return new Error('Unable to decrypt using skipped keys.');
@@ -358,7 +388,7 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
             'mk': nacl.to_hex(msgKey)
         });
     }
-    return { 'CKp' : nacl.to_hex(chainKey), 'MK' : msgKey, 'stagingArea' : stagingArea };
+    return { 'CKp' : nacl.to_hex(chainKey), 'MK' : nacl.to_hex(msgKey), 'stagingArea' : stagingArea };
 }
 
 /**
@@ -405,7 +435,7 @@ function decryptBody(key, ciphertext, nonce) {
     var plaintext;
     try { //TODO: use domains instead, not try/catch!
         plaintext = nacl.crypto_secretbox_open(nacl.from_hex(ciphertext),
-                nacl.from_hex(nonce), key);
+                nacl.from_hex(nonce), nacl.from_hex(key));
     } catch (err) {
         mu.debug(err, key, ciphertext, nonce);
         return new Error(err.message);
@@ -476,7 +506,7 @@ function recvMessage(state, ciphertext, callback) {
                 state.counter_recv, hdr.msg_number, state.chain_key_recv);
         var purportedChainKey = keys.CKp;
         plaintext = decryptBody(keys.MK, ciphertext.body, hdr.nonce);
-        handlePotentialError(plaintext, 'Error: Failed to decrypt message body with purported message key.', callback);
+        handlePotentialError(plaintext, 'Error: Failed to decrypt message body with purported message key (1).', callback);
         stagingArea = keys.stagingArea;
         finish(state, stagingArea, plaintext, hdr.msg_number, purportedChainKey, callback);
     } else {
@@ -487,13 +517,13 @@ function recvMessage(state, ciphertext, callback) {
         purportedHdr = decryptHeader(state.next_header_key_recv, ciphertext.head, ciphertext.nonce);
         handlePotentialError(purportedHdr, 'Error: Failed to decrypt message header with next_header_key_recv.', callback)
         var hdr = parseHeader(purportedHdr);
-        if (state.header_key_recv) {
+        if (state.chain_key_recv) { // else we have never established a key with which to decrypt any messages anyway.
             stagingArea = stage_skipped_header_and_message_keys(stagingArea, state.header_key_recv, 
                 state.counter_recv, hdr.prev_msg_number, 
-                state.chain_key_recv,//(state.chain_key_recv)? state.chain_key_recv : state.chain_key_send,
+                state.chain_key_recv,
                 true).stagingArea;
-                // ^ use the chain_key_send if no recv was present until now!
-                // FIXME: Wait for Trevor's response to know whether this is correct.
+                // Trevor Perrin (Axolotl master mind) answered that this it is correct to ignore this when no chain key is
+                // present.
         }
         var purportedHeaderKey = state.next_header_key_recv;
         var purportedRootKey, purportedNextHeaderKey, purportedChainKey;

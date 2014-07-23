@@ -60,6 +60,7 @@ describe('DB write', function(){
         it('should write data to the database', function(done){
             var pk = new Prekey();
             pk.key_id = 27;
+            pk.id_mac = 'TESTTEST';
             pk.base_key = 'TESTTEST';
             pk.save(function(err, obj, numAffected) {
                 expect(err).to.not.exist;

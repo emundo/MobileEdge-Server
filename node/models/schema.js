@@ -22,7 +22,9 @@ var mongoose = require('mongoose'),
  * Schema definition
  */
 var Prekey = new Schema({
-    key_id      : { type: Number, required: true , unique: true},
+    id_mac      : { type: String, required: true, index: true },
+    timestamp   : { type: Date, 'default': Date.now, index: true},
+    key_id      : { type: Number, required: true, unique: true },
     base_key    : { type: String, required: true }
 });
 
