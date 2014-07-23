@@ -1,17 +1,29 @@
+/*
+ * Copyright (c) 2014 eMundo GmbH
+ * All Rights Reserved.
+ *
+ * This software is the confidential and proprietary information of
+ * eMundo GmbH. ("Confidential Information"). You
+ * shall not disclose such Confidential Information and shall use it
+ * only in accordance with the terms of the license agreement you
+ * entered into with eMundo GmbH.
+ *
+ * Created by Raphael Arias on 2014-06-02.
+ */
+
 /**
  * @file Implements token-related operations like token creation.
  * @author Raphael Arias <raphael.arias@e-mundo.de>
  */
-var nacl_factory = require("js-nacl");
-var nacl = nacl_factory.instantiate();
-var myutil = require("./util.js");
+var myutil = require("./util.js"),
+    cu = require('./crypto_util.js');
 var util = require('util');
-//myutil.debug(nacl.to_hex(nacl.random_bytes(16)));
+myutil.debug(nacl.to_hex(nacl.random_bytes(32)));
 
-var cv = nacl.encode_utf8;
-var toHex = nacl.to_hex;
-
-var key = cv("d2cf52201f5fe179a9174b3925351159");
+var cv = nacl.encode_utf8,
+    toHex = nacl.to_hex;
+var key = nacl.from_hex('c3c9989ce9c7c1cb55e4ef9af6f9024c168055dcc8e9b859106968c434839a08');
+//var key = cv("00");
 
 var VALID   = 0;
 var EXPIRED = 1;
@@ -33,7 +45,7 @@ exports.INVALID = INVALID;
 function _create_id(data, callback) {
     var token = {
         'info' : data,
-        'mac' : toHex(hmac(key, JSON.stringify(data)))
+        'mac' : toHex(cu.hmac(key, JSON.stringify(data)))
     }; 
     callback(token);
 }
@@ -72,7 +84,7 @@ exports.create_id = create_id;
  * @param old - the "old" ID token
  * @param callback - function to be called with the newly refreshed token.
  */
-function refresh_id(old, callback) {
+exports.refresh_id = function refresh_id(old, callback) {
     if (_verify_id(old) !== VALID) {
         callback(null);
     }
@@ -83,7 +95,6 @@ function refresh_id(old, callback) {
     };
     _create_id(new_data, callback);
 }
-exports.refresh_id = refresh_id;
 
 /**
  * Verifies an ID token. 
@@ -91,7 +102,14 @@ exports.refresh_id = refresh_id;
  * @return the verification result. This can be 
  *  0 (VALID), 
  *  1 (EXPIRED),
- *  2 (INVALID),
+ *  2 (INVALID),        mu.debug("here!");
+        mu.debug(key.toString('hex'));
+        key = key.toString('hex');
+        result.first = key.substr(0, key.length / 2);
+        result.last  = key.substr(key.length / 2);
+        mu.debug(result);
+        callback(null, result);
+
  *  3 (EXPIRED AND INVALID)
  */
 function _verify_id(token) {
@@ -99,7 +117,7 @@ function _verify_id(token) {
     if (token['info']['expires'] < new Date()) {
         result = EXPIRED;
     }
-    if (token['mac'] !== toHex(hmac(key, JSON.stringify(token['info'])))) {
+    if (token['mac'] !== toHex(cu.hmac(key, JSON.stringify(token['info'])))) {
         result |= INVALID;
     }
     return result;
@@ -116,28 +134,9 @@ function _verify_id(token) {
  *      value between 0 and 3, inclusively. A calling function should
  *      only accept the token if it is VALID (0).
  */
-function verify_id(token, callback) {
-    myutil.debug('Verifying token:', token);
+exports.verify_id = function verify_id(token, callback) {
+    // myutil.debug('Verifying token:', token);
     callback(_verify_id(token));
 }
-exports.verify_id = verify_id;
 
-/**
- * Compute an HMAC with a given key and data (message).
- * The inner and outer padding (ipad, opad) are based on the 
- * RFC2104 definition of HMAC (https://tools.ietf.org/html/rfc2104) 
- * @param {Uint8Array} key - the secret key used for the HMAC
- * @param {string} data - the data to be embedded in the HMAC
- * @return {Uint8Array} - the HMAC created from key and data as 32 bytes
- */
-function hmac(key, data) {
-    myutil.debug("Hashing:" + data);
-    var opad = new Uint8Array(64),
-        ipad = new Uint8Array(64); 
-    for (var i = 0; i < opad.length; i++)
-        opad[i] = 0x5c;
-    for (var i = 0; i < ipad.length; i++)
-        ipad[i] = 0x5c;
-    return nacl.crypto_hash_sha256(cv(myutil.xor(key,opad) + toHex(nacl.crypto_hash_sha256(cv(toHex(myutil.xor(key, ipad)) + data)))));
-}
 

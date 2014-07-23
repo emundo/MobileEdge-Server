@@ -1,15 +1,21 @@
 Dependencies
 node
 npm
-libsodium 0.5.0 (https://download.libsodium.org/libsodium/releases/libsodium-0.5.0.tar.gz)
+mongodb (installed as explained on http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/)
+            //libsodium 0.5.0 (https://download.libsodium.org/libsodium/releases/libsodium-0.5.0.tar.gz)
 various packages installable from npm:
     nodemon
     grunt
     grunt-nodemon
     node-inspector
-    sodium
+    js-nacl (wanted sodium but the build won't work)
     dgeni
+    dgeni-packages
+    canonical-path
     chai
+    mongoose
+    bson
+    hkdf
 installed from npm globally:
     mocha
     grunt-cli
