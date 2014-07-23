@@ -31,14 +31,15 @@ var Prekey = new Schema({
  */
 var Skipped = new Schema({
     timestamp   : { type: Date, default: Date.now, index: true },
-    skipped_hk  : String,
-    skipped_mk  : String
+    hk  : String,
+    mk  : String
 });
 
 /**
  * Schema definition of the state of the Axolotl Ratchet.
  */
 var AxolotlState = new Schema({
+    id_mac              : { type: String, required: true, index: { unique: true } },
     root_key            : String,
     header_key_send     : String,
     header_key_recv     : String,
@@ -49,6 +50,7 @@ var AxolotlState = new Schema({
     dh_identity_key_send: String,
     dh_identity_key_recv: String,
     dh_ratchet_key_send : String,
+    dh_ratchet_key_send_pub : String,
     dh_ratchet_key_recv : String,
     counter_send        : Number,
     counter_recv        : Number,

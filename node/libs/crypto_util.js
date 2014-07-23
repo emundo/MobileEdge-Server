@@ -24,17 +24,17 @@ var mu = require('./util.js'); // My Util
  * The inner and outer padding (ipad, opad) are based on the 
  * RFC2104 definition of HMAC (https://tools.ietf.org/html/rfc2104)
  *
- * ATTENTION: For some reason this differs from the HMAC implementation
- * in Node.crypto and until I know that this implementation is not
- * somehow flawed, _hmac below (which uses Node.crypto) should and will be used.
- * Node.crypto is also consistent with http://www.freeformatter.com/hmac-generator.html
+ * ATTENTION: For some reason this used to differ from the HMAC implementation
+ * using Node.crypto (below, _hmac). It now seems to be consistent, although none of the
+ * implementations match http://www.freeformatter.com/hmac-generator.html , but that 
+ * might be there fault.
  *
  * @param {Uint8Array} key - the secret key used for the HMAC
  * @param {string} data - the data to be embedded in the HMAC
  * @return {Uint8Array} - the HMAC created from key and data as 32 bytes
  */
 function hmac(key, data) {
-//    mu.debug("Hashing:", nacl.to_hex(key), data);
+    //mu.debug("Hashing:", nacl.to_hex(key), data);
     var opad = new Uint8Array(64), // outer padding
         ipad = new Uint8Array(64); // inner padding 
     for (var i = 0; i < opad.length; i++)
@@ -48,21 +48,20 @@ function hmac(key, data) {
 }
 
 function _hmac(key, data) {
-//    mu.debug("Hashing:", nacl.to_hex(key), data);
-    var hmac = crypto.createHmac('sha256', nacl.to_hex(key));
+    //mu.debug("Hashing:", nacl.to_hex(key), data);
+    //var hmac = crypto.createHmac('sha256', nacl.to_hex(key));// might decode_latin1 be better here?
+    var hmac = crypto.createHmac('sha256', nacl.decode_latin1(key));
     hmac.update(data);
     return hmac.digest();
 }
-exports.hmac =  _hmac;
+exports.hmac =  hmac;
 exports._hmac = _hmac;
-function hkdf(inputKeyMaterial, info, callback) {
+function hkdf(inputKeyMaterial, info, length, callback) {
     var hkdf = new HKDF('sha256', 'salty', inputKeyMaterial),
         result = {};
-    hkdf.derive(info , 64, function(key) {
+    hkdf.derive(info , length, function(key) {
         key = key.toString('hex');
-        result.first = key.substr(0, key.length / 2);
-        result.last  = key.substr(key.length / 2);
-        callback(result);
+        callback(key);
     });
 }
 exports.hkdf = hkdf;

@@ -53,6 +53,10 @@ var sslOptions = {
   rejectUnauthorized: false
 };
 
+/**
+ * Create the actual HTTPS server. Client requests are handled here, and
+ * responses created accordingly.
+ */
 var secureServer = https.createServer(sslOptions, function(request, response) {
   response.writeHead(200, {"Content-Type": "text/plain"});
   response.write("Hello World");
