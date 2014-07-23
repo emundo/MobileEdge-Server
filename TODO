@@ -1,0 +1,25 @@
+* When are AxolotlStates deleted?
+    * periodically check identities timestamp and then
+        delete AxolotlState for corresponding id_mac
+* Fully integrate DataSources with AxolotlStates
+    * eliminate state passing; seems so nice for testing though.
+* Tests regarding prekeys 
+    * create IDToken Alice ✓
+    * key exchange with alice ✓
+    * leave Alice's identity key on the server ✓
+    * leave Alice's prekeys on the server ✓
+    * key exchange with Carol ✓
+    * Carol: ask for a prekey for Alice ✓
+    * send and decrypt message
+* main.js handlers for messages:
+    * id request ✓
+    * id update ✓
+    * key exchange ✓
+    * prekey push ✓
+    * prekey pull ✓
+* Bonus system "BonuSafe"
+    * Should/can blind signatures be actually used?
+    * TokenStore code
+    * Devise privacy preserving way to combine tokens
+* Abuse prevention
+    * Different way than registration?
