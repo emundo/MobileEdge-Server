@@ -160,12 +160,13 @@ function keyAgreement(keyExchangeMsg, callback) {
     var myId = getIDKey(),                  // B
         myEph0 = newDHParam(),       // B_0
         myEph1 = newDHParam();       // B_1
-    var theirId = nacl.from_hex(keyExchangeMsg['id']),                     // A
-        theirEph0 = nacl.from_hex(keyExchangeMsg['eph0']),                   // A_0
+    var theirId = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['id'])), // A
+        theirEph0 = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['eph0'])),                   // A_0
         theirEph1 = null;                   // A_1 (unused, remove?)
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysBob({ 'id': myId, 'eph0' : myEph0, 'eph1' : myEph1 },
-                mu.map(nacl.from_hex, keyExchangeMsg), function(res) {
+                mu.map(nacl.from_hex, mu.map(mu.base64ToHex,keyExchangeMsg)),
+                function(res) {
         state.id_mac                = nacl.to_hex(keyExchangeMsg.id_mac);
         state.root_key              = res.rk;
         state.chain_key_send        = res.ck; // Server is Bob. So we set CKs first.
@@ -186,9 +187,9 @@ function keyAgreement(keyExchangeMsg, callback) {
                 callback(err);
             } else {
                 callback(null, {
-                    'id': nacl.to_hex(myId.boxPk), 
-                    'eph0' : nacl.to_hex(myEph0.boxPk), 
-                    'eph1': nacl.to_hex(myEph1.boxPk)
+                    'id': mu.hexToBase64(nacl.to_hex(myId.boxPk)),
+                    'eph0' : mu.hexToBase64(nacl.to_hex(myEph0.boxPk)),
+                    'eph1': mu.hexToBase64(nacl.to_hex(myEph1.boxPk))
                 }, res, state);
             }
         });
@@ -218,13 +219,14 @@ exports.keyAgreementAlice =
 function keyAgreementAlice(myParams, keyExchangeMsg, callback) {
     var myId = myParams.id,            // A
         myEph0 = myParams.eph0;       // A_0
-    var theirId = nacl.from_hex(keyExchangeMsg['id']),                     // B
-        theirEph0 = nacl.from_hex(keyExchangeMsg['eph0']),                 // B_0
-        theirEph1 = nacl.from_hex(keyExchangeMsg['eph1']);                 // B_1 
+    var theirId = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['id'])),                     // B
+        theirEph0 = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['eph0'])),             // B_0
+        theirEph1 = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['eph1']));                 // B_1 
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysAlice({ 'id': myId, 'eph0' : myEph0 },
-                mu.map(nacl.from_hex, keyExchangeMsg), function(res) {
-        callback(null, res)
+                mu.map(nacl.from_hex, mu.map(mu.base64ToHex, keyExchangeMsg)), 
+                function(res) {
+        callback(null, res);
     });
 }
 
@@ -293,14 +295,14 @@ function sendMessage(id_mac, msg, callback) {
                         nacl.encode_utf8(
                             JSON.stringify([state.counter_send,
                                 state.previous_counter_send,
-                                state.dh_ratchet_key_send_pub,
-                                nacl.to_hex(nonce1)])),
+                                mu.hexToBase64(state.dh_ratchet_key_send_pub),
+                                mu.hexToBase64(nacl.to_hex(nonce1))])),
                         nonce2,
                         nacl.from_hex(state.header_key_send));
         var ciphertext = {
-            'nonce' : nacl.to_hex(nonce2),
-            'head'  : nacl.to_hex(msgHead),
-            'body'  : nacl.to_hex(msgBody)
+            'nonce' : mu.hexToBase64(nacl.to_hex(nonce2)),
+            'head'  : mu.hexToBase64(nacl.to_hex(msgHead)),
+            'body'  : mu.hexToBase64(nacl.to_hex(msgBody))
                 //TODO mac!?
         }
         state.counter_send += 1;
@@ -346,7 +348,8 @@ function sendMessage(id_mac, msg, callback) {
  * @param {String} purportedHeaderKey the purported new header key to be written to the state
  * @param {String} purportedNextHeaderKey the purported new next header key to be 
  *  written to the state
- * @param {String} purportedDHRatchetKey the purported DH ratchet key to be written to the state
+ * @param {String} purportedDHRatchetKey the purported DH ratchet key to be written to the state.
+ *  Given as a base64 string. needs to be converted!
  * @return {AxolotlState} the new state.
  */
 function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey, 
@@ -354,7 +357,7 @@ function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey,
     state.root_key = purportedRootKey;
     state.header_key_recv = purportedHeaderKey;
     state.next_header_key_recv = purportedNextHeaderKey;
-    state.dh_ratchet_key_recv = purportedDHRatchetKey;
+    state.dh_ratchet_key_recv = mu.base64ToHex(purportedDHRatchetKey);
     state.dh_ratchet_key_send = null;
     state.dh_ratchet_key_send_pub = null;
     state.ratchet_flag = true;
@@ -457,11 +460,15 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
  */
 function decryptHeader(key, ciphertext, nonce) {
     var plainHdr;
+    var hexKey = mu.base64ToHex(key);
+    var hexCiphertext = mu.base64ToHex(ciphertext);
+    var hexNonce = mu.base64ToHex(nonce);
+
     try { //TODO: use domains instead, not try/catch!
         plainHdr = nacl.crypto_secretbox_open(
-                nacl.from_hex(ciphertext), 
-                nacl.from_hex(nonce), 
-                nacl.from_hex(key));
+                nacl.from_hex(hexCiphertext), 
+                nacl.from_hex(hexNonce), 
+                nacl.from_hex(hexKey));
     } catch (err) {
         return new Error('Header decryption failed' + err);
     }
@@ -485,9 +492,13 @@ function decryptHeader(key, ciphertext, nonce) {
  */
 function decryptBody(key, ciphertext, nonce) {
     var plaintext;
+    var hexKey = mu.base64ToHex(key);
+    var hexCiphertext = mu.base64ToHex(ciphertext);
+    var hexNonce = mu.base64ToHex(nonce);
+
     try { //TODO: use domains instead, not try/catch!
-        plaintext = nacl.crypto_secretbox_open(nacl.from_hex(ciphertext),
-                nacl.from_hex(nonce), nacl.from_hex(key));
+        plaintext = nacl.crypto_secretbox_open(nacl.from_hex(hexCiphertext),
+                nacl.from_hex(hexNonce), nacl.from_hex(hexKey));
     } catch (err) {
         //mu.debug(err, key, ciphertext, nonce);
         return new Error(err.message);
