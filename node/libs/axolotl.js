@@ -163,11 +163,14 @@ function keyAgreement(keyExchangeMsg, callback) {
     var theirId = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['id'])), // A
         theirEph0 = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['eph0'])),                   // A_0
         theirEph1 = null;                   // A_1 (unused, remove?)
+    var theirIdMac = keyExchangeMsg.id_mac;
+    mu.log("#########################id_mac1:", keyExchangeMsg.id_mac);
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysBob({ 'id': myId, 'eph0' : myEph0, 'eph1' : myEph1 },
                 mu.map(nacl.from_hex, mu.map(mu.base64ToHex,keyExchangeMsg)),
                 function(res) {
-        state.id_mac                = nacl.to_hex(keyExchangeMsg.id_mac);
+        mu.log("#########################id_mac2:", theirIdMac);
+        state.id_mac                = theirIdMac;
         state.root_key              = res.rk;
         state.chain_key_send        = res.ck; // Server is Bob. So we set CKs first.
         state.header_key_send       = res.hk;
@@ -305,6 +308,7 @@ function sendMessage(id_mac, msg, callback) {
             'body'  : mu.hexToBase64(nacl.to_hex(msgBody))
                 //TODO mac!?
         }
+        mu.log('in SEND:', ciphertext);
         state.counter_send += 1;
         state.chain_key_send = nacl.to_hex(cu.hmac(nacl.from_hex(state.chain_key_send), "1"));
         dsrc.axolotl_state.save(function(err, doc){
@@ -460,7 +464,8 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
  */
 function decryptHeader(key, ciphertext, nonce) {
     var plainHdr;
-    var hexKey = mu.base64ToHex(key);
+    mu.log('key:', key, 'text:', ciphertext, 'nonce', nonce);
+    var hexKey = key; //key was stored as hex or computed locally
     var hexCiphertext = mu.base64ToHex(ciphertext);
     var hexNonce = mu.base64ToHex(nonce);
 
@@ -470,7 +475,7 @@ function decryptHeader(key, ciphertext, nonce) {
                 nacl.from_hex(hexNonce), 
                 nacl.from_hex(hexKey));
     } catch (err) {
-        return new Error('Header decryption failed' + err);
+        return new Error('Header decryption failed' + err.message);
     }
     try {
         var header = JSON.parse(nacl.decode_utf8(plainHdr));
@@ -492,7 +497,7 @@ function decryptHeader(key, ciphertext, nonce) {
  */
 function decryptBody(key, ciphertext, nonce) {
     var plaintext;
-    var hexKey = mu.base64ToHex(key);
+    var hexKey = key; //mu.base64ToHex(key);
     var hexCiphertext = mu.base64ToHex(ciphertext);
     var hexNonce = mu.base64ToHex(nonce);
 
@@ -660,7 +665,7 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
         var purportedRootKey, purportedNextHeaderKey, purportedChainKey;
         var dh = nacl.to_hex(nacl.crypto_scalarmult(
                 nacl.from_hex(state.dh_ratchet_key_send),
-                nacl.from_hex(hdr.dh_ratchet_key))),
+                nacl.from_hex(mu.base64ToHex(hdr.dh_ratchet_key)))),
             input = cu.hmac(nacl.from_hex(state.root_key), dh);
         cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function keyDerivationCallback(key) {
             attemptDecryptionUsingDerivedKeyMaterial(dsrc, 
@@ -691,6 +696,7 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
  */
 exports.recvMessage = 
 function recvMessage(id_mac, ciphertext, callback) {
+    mu.log('IN RECEIVE:', ciphertext);
     var dsrc = new DataSource();
     dsrc.axolotl_state.get(id_mac, function(err, state) {
         if (!state) {
