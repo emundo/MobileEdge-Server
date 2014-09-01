@@ -442,7 +442,7 @@ describe('requestID', function()
         requestID(function (ID_token, statusCode) 
         {                
                 expect(ID_token.info, 'property: expires').to.have.property('expires').to.have.length(24);
-                expect(ID_token.info, 'property: nonce').to.have.property('nonce').to.have.length(32);
+                expect(ID_token.info, 'property: nonce').to.have.property('nonce').to.have.length(48);
                 expect(ID_token, 'property: mac').to.have.property('mac').to.have.length(64);    
                 expect(statusCode, 'Status Code').to.equal(200);                
                 done();                            
@@ -538,7 +538,7 @@ describe('sendMsg', function ()
                             sendMsg(message, ID_token, bobID, stateAlice, function (result, bobID)  
                             {
                                 expect(result, 'property: nonce').to.have.property('nonce').to.have.length(32);   
-                                expect(result, 'property: head').to.have.property('head').to.have.length(278);    //size changes???  
+                                expect(result, 'property: head').to.have.property('head').to.have.length(140);    //size changes???  
                                 expect(result, 'property: body').to.have.property('body');   
                                 done();     
                             })                                 
@@ -597,7 +597,7 @@ describe('buildPKREQ', function ()
                             expect(message, 'property: type').to.have.property('type').to.have.length(5);
                             expect(message.pkreq.id_token, 'property: mac').to.have.property('mac').to.have.length(64);
                             expect(message.pkreq.id_token.info, 'property: expires').to.have.property('expires').to.have.length(24);
-                            expect(message.pkreq.id_token.info, 'property: nonce').to.have.property('nonce').to.have.length(32);                           
+                            expect(message.pkreq.id_token.info, 'property: nonce').to.have.property('nonce').to.have.length(48);                           
                             done();       
                         });                
                     });             
@@ -675,7 +675,7 @@ describe('refreshID', function()
             {
                 expect(ID_token, 'Status Code').to.not.equal(new_ID_token);                
                 expect(new_ID_token.info, 'property: expires').to.have.property('expires').to.have.length(24);
-                expect(new_ID_token.info, 'property: nonce').to.have.property('nonce').to.have.length(32);
+                expect(new_ID_token.info, 'property: nonce').to.have.property('nonce').to.have.length(48);
                 expect(new_ID_token, 'property: mac').to.have.property('mac').to.have.length(64);    
                 done();                  
             });                    
