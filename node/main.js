@@ -26,8 +26,9 @@ var https = require('https'),
     fs = require('fs'),
     mongoose = require('mongoose'),
     ds = require('./models/DataSourceMongoose.js'),
-    prekey = require('./libs/prekey.js');
-
+    prekey = require('./libs/prekey.js'),
+    error = require('./libs/error.js');
+var createErrorObject = error.createErrorObject;
 var DataSource = ds.DataSource;
 /**
  * Create a database connection to use globally throughout the program.
@@ -56,6 +57,8 @@ var sslOptions = {
 //  requestCert: true,
   rejectUnauthorized: false
 };
+
+
 
 /**
  * @callback GeneralCallback
@@ -92,7 +95,8 @@ var sslOptions = {
 function handleIdentityRequest(msg, callback) {
     token.create_id(function (id_token){
         if (id_token instanceof Error)
-            callback({ 'statusCode' : 500, 'message' : 'Could not create ID.' });
+            callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_ID_CREATION_FAILURE") });
+            //callback({ 'statusCode' : 500, 'message' : 'Could not create ID.' });
         else
             callback({ 'statusCode' : 200, 'message' : id_token });
     });
@@ -108,11 +112,12 @@ function handleIdentityRequest(msg, callback) {
  */
 function handleIdentityRefresh(msg, callback) {
     if (!msg.id_token)
-        callback({ 'statusCode' : 400, 'message' : 'No ID to refresh.' });
+        callback({ 'statusCode' : 400, 'message' : createErrorObject('ERROR_CODE_REFRESHING_ID_NOT_GIVEN') });
     else {
         token.refresh_id(msg.id_token, function(new_id) {
             if (new_id instanceof Error)
-                callback({ 'statusCode' : 500, 'message' : 'Could not refresh ID.' });
+                callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_ID_REFRESHING_FAILURE") });
+                //callback({ 'statusCode' : 500, 'message' : 'Could not refresh ID.' });
             else 
                 callback({ 'statusCode' : 200, 'message' : new_id });
         });
@@ -130,13 +135,16 @@ function handleIdentityRefresh(msg, callback) {
  */
 function handleKeyExchange(msg, callback) {
     if (!msg.id_token)
-        callback({ 'statusCode' : 400, 'message' : 'No ID for key exchange.' });
+        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_ID_NOT_GIVEN") });
+        //callback({ 'statusCode' : 400, 'message' : 'No ID for key exchange.' });
     else {
         token.verify_id(msg.id_token, function(result){
             if (result !== token.VALID)
-                callback({ 'statusCode' : 403, 'message' : 'Could not perform key exchange. Invalid ID.' });
+                callback({ 'statusCode' : 403, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_ID_INVALID") });
+                //callback({ 'statusCode' : 403, 'message' : 'Could not perform key exchange. Invalid ID.' });
             else if (!msg.keys || !msg.keys.id || !msg.keys.eph0)
-                callback({ 'statusCode' : 400, 'message' : 'No key exchange message.' });
+                callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_NO_MESSAGE") });
+                //callback({ 'statusCode' : 400, 'message' : 'No key exchange message.' });
             else {
                 var theirKeyExchange = {
                     'id_mac': msg.id_token.mac,
@@ -145,7 +153,8 @@ function handleKeyExchange(msg, callback) {
                 };
                 axolotl.keyAgreement(theirKeyExchange, function(err, ourKeyExchange) {
                     if (err) {
-                        callback({ 'statusCode' : 500, 'message' : 'Could not perform key exchange.' });
+                callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_FAILURE") });
+                        //callback({ 'statusCode' : 500, 'message' : 'Could not perform key exchange.' });
                     } else {
                         callback({ 'statusCode' : 200, 'message' : ourKeyExchange });
                     }
@@ -168,25 +177,31 @@ function handleKeyExchange(msg, callback) {
  */
 function handleEncrypted(msg, callback) {
     if (!msg.id_token)
-        callback({ 'statusCode' : 400, 'message' : 'No ID given.' });
+        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_ID_NOT_GIVEN") });
+        //callback({ 'statusCode' : 400, 'message' : 'No ID given.' });
     else if (!msg.payload)
-        callback({ 'statusCode' : 400, 'message' : 'No encrypted message.' });
+        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_NO_MESSAGE") });
+        //callback({ 'statusCode' : 400, 'message' : 'No encrypted message.' });
     else {
         token.verify_id(msg.id_token, function(result) {
             if (result !== token.VALID)
-                callback({ 'statusCode' : 403, 'message' : 'Cannot decrypt. Invalid Token.' });
+                callback({ 'statusCode' : 403, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_ID_INVALID") });
+                //callback({ 'statusCode' : 403, 'message' : 'Cannot decrypt. Invalid Token.' });
             else {
                 axolotl.recvMessage(msg.id_token.mac, msg.payload, function(err, plaintext, state) {
                     if (err)
-                        callback({ 'statusCode' : 500, 'message' : 'Error while decrypting.' });
+                        callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_FAILURE") });
+                        //callback({ 'statusCode' : 500, 'message' : 'Error while decrypting.' });
                     else {
                         try { // TODO: use domains instead of try/catch!
                             decrypted_msg = JSON.parse(plaintext);
                         } catch (err) {
-                            callback({ 'statusCode' : 400, 'message' : 'Invalid message format.' }); // 400: Bad Request
+                            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_FORMAT") }); // 400: Bad Request
+                            //callback({ 'statusCode' : 400, 'message' : 'Invalid message format.' }); // 400: Bad Request
                         }
                         if (!decrypted_msg.type)
-                            callback({ 'statusCode' : 400, 'message' : 'Decrypted message has no type.' }); // 400: Bad Request
+                            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_TYPE") }); // 400: Bad Request
+                            //callback({ 'statusCode' : 400, 'message' : 'Decrypted message has no type.' }); // 400: Bad Request
                         else {
                             decrypted_msg.from = msg.id_token.mac;
                             if ('PKPUT' === decrypted_msg.type)
@@ -215,19 +230,23 @@ function handleEncrypted(msg, callback) {
 function handlePrekeyPush(msg, callback) {
     // Key id is random nonce, so 24 byte. * 2 as it is given as hex string
     if (!msg.pk || !msg.pk.kid || !msg.pk.base)
-        callback({ 'statusCode' : 400, 'message' : 'No prekey specified.', 'toBeEncrypted' : true });
+        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_NONEXISTENT_PREKEY"), 'toBeEncrypted' : true });
+        //callback({ 'statusCode' : 400, 'message' : 'No prekey specified.', 'toBeEncrypted' : true });
     else {
         var re_kid = /[0-9a-f]{48}/;
         var re_base = /[0-9a-f]{64}/;
         if (!re_kid.test(msg.pk.kid))
-            callback({ 'statusCode' : 400, 'message' : 'Invalid key id.', 'toBeEncrypted' : true });
+            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_INVALID_PREKEY_ID"), 'toBeEncrypted' : true });
+            //callback({ 'statusCode' : 400, 'message' : 'Invalid key id.', 'toBeEncrypted' : true });
         else if (!re_base.test(msg.pk.base))
-            callback({ 'statusCode' : 400, 'message' : 'Invalid base key.', 'toBeEncrypted' : true });
+            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_INVALID_PREKEY_BASE"), 'toBeEncrypted' : true });
+            //callback({ 'statusCode' : 400, 'message' : 'Invalid base key.', 'toBeEncrypted' : true });
         else {
             prekey.put(msg.from, msg.pk.kid, msg.pk.base, function(err){
                 if (err) {
                     myutil.debug("Err in handler not null, return 500");
-                    callback({ 'statusCode' : 500, 'message' : 'Could not store prekey.', 'toBeEncrypted' : true });
+                    callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_FAILURE"), 'toBeEncrypted' : true });
+                    //callback({ 'statusCode' : 500, 'message' : 'Could not store prekey.', 'toBeEncrypted' : true });
                 } else {
                     callback({ 'statusCode' : 200, 'message' : 'OK', 'toBeEncrypted' : true });
                 }
@@ -247,15 +266,18 @@ function handlePrekeyPush(msg, callback) {
  */
 function handlePrekeyRequest(msg, callback) {
     if (!msg.pkreq || !msg.pkreq.id_token) {
-        callback({ 'statusCode' : 400, 'message' : 'No identity specified.', 'toBeEncrypted' : true });
+        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_GET_ID_NOT_GIVEN"), 'toBeEncrypted' : true });
+        //callback({ 'statusCode' : 400, 'message' : 'No identity specified.', 'toBeEncrypted' : true });
     } else {
         token.verify_id(msg.pkreq.id_token, function(result) {
             if (result !== token.VALID) {
-                callback({ 'statusCode' : 404, 'message' : 'Invalid identity. No prekey present.', 'toBeEncrypted' : true });
+                callback({ 'statusCode' : 404, 'message' : createErrorObject("ERROR_CODE_PREKEY_GET_ID_INVALID"), 'toBeEncrypted' : true });
+                //callback({ 'statusCode' : 404, 'message' : 'Invalid identity. No prekey present.', 'toBeEncrypted' : true });
             } else {
                 prekey.get(msg.pkreq.id_token.mac, function(err, doc) {
                     if (err || !doc) {
-                        callback({ 'statusCode' : 404, 'message' : 'Could not find prekey.', 'toBeEncrypted' : true });
+                        callback({ 'statusCode' : 404, 'message' : createErrorObject("ERROR_CODE_PREKEY_GET_NOT_FOUND"), 'toBeEncrypted' : true });
+                        //callback({ 'statusCode' : 404, 'message' : 'Could not find prekey.', 'toBeEncrypted' : true });
                     } else {
                         callback({ 
                                 'statusCode' : 200, 
@@ -298,9 +320,10 @@ function respond(context, response) {
         axolotl.sendMessage(context.from, text, function(err, ciphertext, state) {
             if (err) {
                 context.response.writeHead(500);    // 500: internal server error
-                context.response.write('Encryption impossible.')
+                context.response.write(createErrorObject("ERROR_CODE_ENCRYPTION_FAILURE"));
+                //context.response.write('Encryption impossible.')
             } else {
-                context.response.writeHead(200);    // 200: OK
+                context.response.writeHead(response.statusCode);    // 200: OK
                 myutil.debug("YAY:", ciphertext);
                 context.response.write(JSON.stringify(ciphertext)); // send encrypted
             }
@@ -329,7 +352,8 @@ function dispatch(context, data) {
     try {
         var msg = JSON.parse(data);
     } catch (err) { // not a valid message
-        respond_cb({ 'statusCode' : 400, 'message' : 'Request did not contain valid JSON.' });
+        respond_cb({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_FORMAT") });
+        //respond_cb({ 'statusCode' : 400, 'message' : 'Request did not contain valid JSON.' });
         return;
     }
     if (msg && msg.id_token)
