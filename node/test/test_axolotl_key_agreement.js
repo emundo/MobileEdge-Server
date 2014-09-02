@@ -38,8 +38,8 @@ describe('Key agreement', function(){
             aliceParams = axolotl.genParametersAlice();
             aliceKeyExchangeMsg = {    // extract public keys
                 'id_mac': 'abcddead',
-                'id'    : nacl.to_hex(aliceParams['id']['boxPk']),
-                'eph0'  : nacl.to_hex(aliceParams['eph0']['boxPk'])
+                'id'    : myutil.hexToBase64(nacl.to_hex(aliceParams['id']['boxPk'])),
+                'eph0'  : myutil.hexToBase64(nacl.to_hex(aliceParams['eph0']['boxPk']))
             }
         });
 

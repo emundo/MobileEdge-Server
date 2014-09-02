@@ -187,8 +187,8 @@ function exchangeKeys(ID_token, callback)   //call requestID() and start KeyExch
     } 
     var aliceKeyExchangeMsg =               //build message with public id and ephemeral key
     {
-        'id' : nacl.to_hex(aliceParams['id']['boxPk']),
-        'eph0' : nacl.to_hex(aliceParams['eph0']['boxPk'])
+        'id' : myutil.hexToBase64(nacl.to_hex(aliceParams['id']['boxPk'])),
+        'eph0' : myutil.hexToBase64(nacl.to_hex(aliceParams['eph0']['boxPk']))
     }     
 
     var payload = 
@@ -360,8 +360,11 @@ function updateStateAlice(keys, keyExchangeMsgBob, aliceParams, ID_token, bobID,
     stateAlice.next_header_key_send  = keys.nhk0;
     stateAlice.next_header_key_recv  = keys.nhk1;
     stateAlice.dh_identity_key_send  = nacl.to_hex(aliceParams.id.boxSk);
-    stateAlice.dh_identity_key_recv  = nacl.to_hex(keyExchangeMsgBob.id);
-    stateAlice.dh_ratchet_key_recv   = nacl.to_hex(keyExchangeMsgBob.eph1);
+
+    stateAlice.dh_identity_key_recv  = myutil.base64ToHex(keyExchangeMsgBob.id);
+    stateAlice.dh_ratchet_key_recv   = myutil.base64ToHex(keyExchangeMsgBob.eph1);
+//    stateAlice.dh_identity_key_recv  = nacl.to_hex(keyExchangeMsgBob.id);
+//    stateAlice.dh_ratchet_key_recv   = nacl.to_hex(keyExchangeMsgBob.eph1);
     stateAlice.counter_send = 0;
     stateAlice.counter_recv = 0;
     stateAlice.previous_counter_send = 0;
@@ -482,7 +485,7 @@ describe('updateStateAlice', function ()
                 {
                     updateStateAlice(keys, keyExchangeMessage, aliceParams, ID_token, bobID, stateAlice, function (ID_token, bobID) 
                     {
-                        expect(bobID).to.have.length(64);                     
+                        expect(bobID).to.have.length(44);                     
                     done();    
                     });             
                 });
@@ -534,8 +537,8 @@ describe('sendMsg', function ()
                         {
                             sendMsg(message, ID_token, bobID, stateAlice, function (result, bobID)  
                             {
-                                expect(result, 'property: nonce').to.have.property('nonce').to.have.length(48);   
-                                expect(result, 'property: head').to.have.property('head').to.have.length(278);    //size changes???  
+                                expect(result, 'property: nonce').to.have.property('nonce').to.have.length(32);   
+                                expect(result, 'property: head').to.have.property('head').to.have.length(140);    //size changes???  
                                 expect(result, 'property: body').to.have.property('body');   
                                 done();     
                             })                                 

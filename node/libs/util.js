@@ -105,3 +105,24 @@ exports.map = function map(f, obj) {
     return obj;
 };
 
+/**
+ * @description
+ *  Convert a string with hexadecimal representation to base64 format.
+ * @param {String} hexString - the hexadecimal string
+ * @return {String} the base64 encoded string
+ */
+exports.hexToBase64 = function hexToBase64(hexString) {
+    var b = new Buffer(hexString, 'hex');
+    return b.toString('base64');
+}
+
+/**
+ * @description
+ *  Convert a string with base64 format to hexadecimal representation.
+ * @return {String} base64String - the base64 encoded string
+ * @return {String} the hexadecimal string
+ */
+exports.base64ToHex = function base64ToHex(base64String) {
+    var b = new Buffer(base64String, 'base64');
+    return b.toString('hex');
+}

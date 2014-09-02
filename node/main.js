@@ -25,10 +25,7 @@ var https = require('https'),
     util = require('util'),
     fs = require('fs'),
     mongoose = require('mongoose'),
-    ds = require('./models/DataSourceMongoose.js'),
-    prekey = require('./libs/prekey.js'),
-    error = require('./libs/error.js');
-var createErrorObject = error.createErrorObject;
+    ds = require('./models/DataSourceMongoose.js');
 var DataSource = ds.DataSource;
 /**
  * Create a database connection to use globally throughout the program.
@@ -45,7 +42,8 @@ global.nacl = nacl_factory.instantiate();
  */
 var token = require("./libs/token.js"),
     myutil = require("./libs/util.js"),
-    axolotl = require("./libs/axolotl.js");
+    axolotl = require("./libs/axolotl.js"),
+    prekey = require('./libs/prekey.js');
 
 /**
  * The SSL certificates and keys need to be loaded.
