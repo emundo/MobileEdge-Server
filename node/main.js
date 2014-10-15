@@ -43,8 +43,10 @@ global.nacl = nacl_factory.instantiate();
 var token = require("./libs/token.js"),
     myutil = require("./libs/util.js"),
     axolotl = require("./libs/axolotl.js"),
-    prekey = require('./libs/prekey.js');
+    prekey = require('./libs/prekey.js'),
+    errorLib = require('./libs/error.js');
 
+var createErrorObject = errorLib.createErrorObject;
 /**
  * The SSL certificates and keys need to be loaded.
  */
@@ -313,22 +315,23 @@ function respond(context, response) {
     myutil.debug("Status code:", response.statusCode);
     myutil.debug('Sending message:', response.message);
     var text = JSON.stringify(response.message);
+    myutil.debug('Sending message text:', text);
     if (response.toBeEncrypted) {
         myutil.debug('Encrypting response.');
         axolotl.sendMessage(context.from, text, function(err, ciphertext, state) {
             if (err) {
-                context.response.writeHead(500);    // 500: internal server error
+                context.response.writeHead(500, {'Content-Type' : 'application/json'});    // 500: internal server error
                 context.response.write(createErrorObject("ERROR_CODE_ENCRYPTION_FAILURE"));
                 //context.response.write('Encryption impossible.')
             } else {
-                context.response.writeHead(response.statusCode);    // 200: OK
+                context.response.writeHead(response.statusCode, {'Content-Type' : 'application/json'});    // 200: OK
                 myutil.debug("YAY:", ciphertext);
                 context.response.write(JSON.stringify(ciphertext)); // send encrypted
             }
             context.response.end();
         }, true);
     } else {
-        context.response.writeHead(response.statusCode);    // 200: OK
+        context.response.writeHead(response.statusCode, {'Content-Type' : 'application/json'});    // 200: OK
         context.response.write(text);       // Send unencrypted
         context.response.end();
     }
@@ -400,6 +403,8 @@ function dispatch(context, data) {
  * prekey is requested.
  */
 var secureServer = https.createServer(sslOptions, function(request, response) {
+//var http = require('http');
+//var insecureServer = http.createServer(function(request, response) {
     var body = '';
     request.on('data', function (chunk) {
         body += chunk;
