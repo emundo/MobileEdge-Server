@@ -21,6 +21,7 @@
 
 var mongoose = require('mongoose'),
     fs = require('fs'),
+    sodium = require('sodium').api,
     mu = require('./util.js'),
     cu = require('./crypto_util.js'),
     schema = require('../models/schema.js'),
@@ -35,7 +36,7 @@ var Identity = mongoose.model('Identity'),
  * @function newDHParam
  * @static
  */
-var newDHParam = nacl.crypto_box_keypair;
+var newDHParam = sodium.crypto_box_keypair;
 
 /**
  * @description (Synchronously) get the Axolotl ID key from a file. This is
@@ -285,6 +286,7 @@ function advanceRatchetSend(state, callback) {
  */
 exports.sendMessage =
 function sendMessage(id_mac, msg, callback) {
+    //TODO: nonce in encrypted message
     var dsrc;
     function workerSend(state) {
         var msgKey = cu.hmac(nacl.from_hex(state.chain_key_send), "0"),
@@ -463,13 +465,14 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
  *  to the decrypted header.
  */
 function decryptHeader(key, ciphertext, nonce) {
+    //TODO: nonce in encrypted message
     var plainHdr;
     mu.log('key:', key, 'text:', ciphertext, 'nonce', nonce);
     var hexKey = key; //key was stored as hex or computed locally
     var hexCiphertext = mu.base64ToHex(ciphertext);
     var hexNonce = mu.base64ToHex(nonce);
 
-    try { //TODO: use domains instead, not try/catch!
+    try { //TODO: use domains instead, not try/catch?
         plainHdr = nacl.crypto_secretbox_open(
                 nacl.from_hex(hexCiphertext), 
                 nacl.from_hex(hexNonce), 
@@ -496,6 +499,7 @@ function decryptHeader(key, ciphertext, nonce) {
  *  the decrypted message.
  */
 function decryptBody(key, ciphertext, nonce) {
+    //TODO: nonce in encrypted message
     var plaintext;
     var hexKey = key; //mu.base64ToHex(key);
     var hexCiphertext = mu.base64ToHex(ciphertext);
@@ -543,6 +547,7 @@ function finish(dsrc, stagingArea, plaintext, Np, CKp, callback) {
  * @return {Object} the parsed header
  */
 function parseHeader(header) {
+    //TODO: nonce in encrypted message
     return {
         'msg_number'        : header[0],
         'prev_msg_number'   : header[1],
@@ -582,6 +587,7 @@ function handlePotentialError(err, msg, callback) {
  */
 function handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingArea, callback) {
     // ... and decryption with it does not fail.
+    //TODO: nonce in encrypted message
     var hdr = parseHeader(purportedHdr);
     var keys = stage_skipped_header_and_message_keys(stagingArea, state.header_key_recv, 
             state.counter_recv, hdr.msg_number, state.chain_key_recv);
@@ -613,6 +619,7 @@ function handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingAre
 function attemptDecryptionUsingDerivedKeyMaterial(dsrc, 
     state, ciphertext, hdr, key, purportedHeaderKey, stagingArea, callback) 
 {
+    //TODO: nonce in encrypted message
     var purportedRootKey = key.substr(0, key.length / 3);
     var purportedNextHeaderKey = key.substr(key.length / 3, key.length / 3);
     var purportedChainKey = key.substr(2 * (key.length / 3));
@@ -644,6 +651,7 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
  * @param {DecryptionCallback} callback - the function to call with the decrypted message or an error
  */
 function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
+    //TODO: nonce in encrypted message
     var purportedHdr = decryptHeader(state.next_header_key_recv, ciphertext.head, ciphertext.nonce);
     if (purportedHdr instanceof Error) {
         mu.log('Error: Failed to decrypt message header with next_header_key_recv.','\n\t', purportedHdr.message);
@@ -696,6 +704,7 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
  */
 exports.recvMessage = 
 function recvMessage(id_mac, ciphertext, callback) {
+    //TODO: nonce in encrypted message
     mu.log('IN RECEIVE:', ciphertext);
     var dsrc = new DataSource();
     dsrc.axolotl_state.get(id_mac, function(err, state) {
