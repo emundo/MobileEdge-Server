@@ -39,8 +39,8 @@ exports.log = console.log;
  * @function debug
  * @static
  */
-//exports.debug = console.log;
-exports.debug = function() {};
+exports.debug = console.log;
+//exports.debug = function() {};
 /**
  * @description
  * Checks if variable is a String. Why create a function for this? Well... JavaScript...
