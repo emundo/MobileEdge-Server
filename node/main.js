@@ -411,7 +411,8 @@ var secureServer = https.createServer(sslOptions, function(request, response) {
     });
     request.on('end', function () {
         dispatch({ 'response': response }, body);
-        myutil.debug('received request from client', request.headers['user-agent']);
+        myutil.debug('received request from client', request.headers['user-agent'],
+            'at', request.connection.remoteAddress);
     });
 }).listen('8888', function(){
     myutil.log("Secure server listening on port 8888");
