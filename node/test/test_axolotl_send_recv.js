@@ -24,7 +24,7 @@ function performKeyExchange(callback) {
         stateAlice.header_key_recv       = keysAlice.hk;
         stateAlice.next_header_key_send  = keysAlice.nhk0;    //FIXME: invert
         stateAlice.next_header_key_recv  = keysAlice.nhk1;    // -"-
-        stateAlice.dh_identity_key_send  = nacl.to_hex(aliceParams.id.boxSk);
+        stateAlice.dh_identity_key_send  = nacl.to_hex(aliceParams.id.secretKey);
 //        stateAlice.dh_identity_key_recv  = nacl.to_hex(keyExchangeMsgBob.id);
 //        stateAlice.dh_ratchet_key_recv   = nacl.to_hex(keyExchangeMsgBob.eph1);   // Storing secret (private) key here. Should we store the whole key pair instead?
         stateAlice.dh_identity_key_recv  = myutil.base64ToHex(keyExchangeMsgBob.id);
@@ -42,8 +42,8 @@ function performKeyExchange(callback) {
     var aliceParams = axolotl.genParametersAlice();
     var aliceKeyExchangeMsg = {    // extract public keys
         'id_mac': aliceID,
-        'id'    : myutil.hexToBase64(nacl.to_hex(aliceParams['id']['boxPk'])),
-        'eph0'  : myutil.hexToBase64(nacl.to_hex(aliceParams['eph0']['boxPk']))
+        'id'    : myutil.hexToBase64(nacl.to_hex(aliceParams['id']['publicKey'])),
+        'eph0'  : myutil.hexToBase64(nacl.to_hex(aliceParams['eph0']['publicKey']))
     };
     axolotl.keyAgreement(aliceKeyExchangeMsg, function(err, ourKeyExchangeMsg){
         if (err) {

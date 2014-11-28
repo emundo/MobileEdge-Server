@@ -48,6 +48,8 @@ var getIDKey = function() {
     var str = fs.readFileSync('./private_ec_id', {encoding: 'utf8'});
     var buf = new Buffer(str, 'base64');
     var id = JSON.parse(buf.toString('utf8'));
+    id.secretKey = id.boxSk;
+    id.publicKey = id.boxPk;
     return mu.map(nacl.from_hex, id);
 };
 
@@ -59,12 +61,12 @@ var getIDKey = function() {
  * This function is likely not used in production and may be moved to a different place
  * soon.
  * 
- * @return {Object} An object containing boxSk and boxPk, both as hex string.
+ * @return {Object} An object containing secretKey and publicKey, both as hex string.
  */
 var generateIDKey = function() {
     var params = newDHParam();
-    params.boxSk = nacl.to_hex(params.boxSk);
-    params.boxPk = nacl.to_hex(params.boxPk);
+    params.secretKey = nacl.to_hex(params.secretKey);
+    params.publicKey = nacl.to_hex(params.publicKey);
     mu.debug('Buff:', (new Buffer(JSON.stringify(params))).toString('base64'));
     return params;
 };
@@ -97,9 +99,10 @@ function makeIdentity(id_token, keyExchangeMsg, callback) {
  */
 var deriveKeysBob = exports.deriveKeysBob =
 function deriveKeysBob(mine, their, callback) {
-    var part1 = nacl.to_hex(nacl.crypto_scalarmult(mine.eph0.boxSk, their.id)),
-        part2 = nacl.to_hex(nacl.crypto_scalarmult(mine.id.boxSk, their.eph0)),
-        part3 = nacl.to_hex(nacl.crypto_scalarmult(mine.eph0.boxSk, their.eph0));
+    mu.debug('deriveKeysBob', mine.id, their.eph0);
+    var part1 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.id))),
+        part2 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.id.secretKey), new Buffer(their.eph0))),
+        part3 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.eph0)));
     deriveKeys(part1, part2, part3, callback)
 }
 
@@ -112,9 +115,10 @@ function deriveKeysBob(mine, their, callback) {
  */
 var deriveKeysAlice = exports.deriveKeysAlice =
 function deriveKeysAlice(mine, their, callback) {
-    var part1 = nacl.to_hex(nacl.crypto_scalarmult(mine.id.boxSk, their.eph0)),
-        part2 = nacl.to_hex(nacl.crypto_scalarmult(mine.eph0.boxSk, their.id)),
-        part3 = nacl.to_hex(nacl.crypto_scalarmult(mine.eph0.boxSk, their.eph0));
+    mu.debug('deriveKeysAlice', mine.id, their.eph0);
+    var part1 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.id.secretKey), new Buffer(their.eph0))),
+        part2 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.id))),
+        part3 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.eph0)));
     deriveKeys(part1, part2, part3, callback)
 }
 
@@ -127,7 +131,7 @@ function deriveKeysAlice(mine, their, callback) {
  * @param {Function} callback function to call when done
  */
 function deriveKeys(part1, part2, part3, callback) {
-    var master_key = nacl.crypto_hash(nacl.from_hex(part1+part2+part3)); // Note that this is SHA512 and not SHA256. It does not have to be.
+    var master_key = sodium.crypto_hash(new Buffer(nacl.from_hex(part1+part2+part3))); // Note that this is SHA512 and not SHA256. It does not have to be.
     cu.hkdf(master_key, 'MobileEdge', 5*32, function(key){
         res = {
             'rk'    : key.substr(0, key.length / 5),
@@ -177,10 +181,10 @@ function keyAgreement(keyExchangeMsg, callback) {
         state.header_key_send       = res.hk;
         state.next_header_key_recv  = res.nhk0;
         state.next_header_key_send  = res.nhk1;
-        state.dh_identity_key_send  = nacl.to_hex(myId.boxPk);
+        state.dh_identity_key_send  = nacl.to_hex(myId.publicKey);
         state.dh_identity_key_recv  = nacl.to_hex(theirId);
-        state.dh_ratchet_key_send   = nacl.to_hex(myEph1.boxSk);   // Storing secret (private) key here. Should we store the whole key pair instead?
-        state.dh_ratchet_key_send_pub = nacl.to_hex(myEph1.boxPk);
+        state.dh_ratchet_key_send   = nacl.to_hex(myEph1.secretKey);   // Storing secret (private) key here. Should we store the whole key pair instead?
+        state.dh_ratchet_key_send_pub = nacl.to_hex(myEph1.publicKey);
         state.counter_send = 0;
         state.counter_recv = 0;
         state.previous_counter_send = 0;
@@ -191,9 +195,9 @@ function keyAgreement(keyExchangeMsg, callback) {
                 callback(err);
             } else {
                 callback(null, {
-                    'id': mu.hexToBase64(nacl.to_hex(myId.boxPk)),
-                    'eph0' : mu.hexToBase64(nacl.to_hex(myEph0.boxPk)),
-                    'eph1': mu.hexToBase64(nacl.to_hex(myEph1.boxPk))
+                    'id': mu.hexToBase64(nacl.to_hex(myId.publicKey)),
+                    'eph0' : mu.hexToBase64(nacl.to_hex(myEph0.publicKey)),
+                    'eph1': mu.hexToBase64(nacl.to_hex(myEph1.publicKey))
                 }, res, state);
             }
         });
@@ -206,7 +210,7 @@ function keyAgreement(keyExchangeMsg, callback) {
  *
  * @return {{id: NaClBoxKeyPair, eph0: NaClBoxKeyPair}} A new object containing 
  *  Alices identity key pair and an ephemeral ECDH key pair for the key exchange.
- *  The objects each contain a boxSk and a boxPk field.
+ *  The objects each contain a secretKey and a publicKey field.
  */
 exports.genParametersAlice =
 function genParametersAlice() {
@@ -241,12 +245,12 @@ function keyAgreementAlice(myParams, keyExchangeMsg, callback) {
  */
 function advanceRatchetSend(state, callback) {
     var updatedKey = newDHParam();
-    state.dh_ratchet_key_send = nacl.to_hex(updatedKey.boxSk);
-    state.dh_ratchet_key_send_pub = nacl.to_hex(updatedKey.boxPk);
+    state.dh_ratchet_key_send = nacl.to_hex(updatedKey.secretKey);
+    state.dh_ratchet_key_send_pub = nacl.to_hex(updatedKey.publicKey);
     state.header_key_send = state.next_header_key_send;
-    var dh =  nacl.to_hex(nacl.crypto_scalarmult(
-                nacl.from_hex(state.dh_ratchet_key_send),
-                nacl.from_hex(state.dh_ratchet_key_recv))),
+    var dh =  nacl.to_hex(sodium.crypto_scalarmult(
+                new Buffer(nacl.from_hex(state.dh_ratchet_key_send)),
+                new Buffer(nacl.from_hex(state.dh_ratchet_key_recv)))),
         input = cu.hmac(nacl.from_hex(state.root_key), dh)
     cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function (key) {
         state.root_key = key.substr(0, key.length / 3);
@@ -290,27 +294,29 @@ function sendMessage(id_mac, msg, callback) {
     var dsrc;
     function workerSend(state) {
         var msgKey = cu.hmac(nacl.from_hex(state.chain_key_send), "0"),
-            nonce1 = nacl.crypto_secretbox_random_nonce(),
-            nonce2 = nacl.crypto_secretbox_random_nonce(),
-            msgBody = nacl.crypto_secretbox(
-                        nacl.encode_utf8(msg),
+            nonce1 = new Buffer(sodium.crypto_secretbox_NONCEBYTES),
+            nonce2 = new Buffer(sodium.crypto_secretbox_NONCEBYTES);
+        sodium.randombytes(nonce1);
+        sodium.randombytes(nonce2);
+        var msgBody = sodium.crypto_secretbox(
+                        new Buffer(nacl.encode_utf8(msg)),
                         nonce1,
-                        msgKey),
-            msgHead = nacl.crypto_secretbox( //TODO: real concatenation of to 32bit ints here!
-                        nacl.encode_utf8(
+                        new Buffer(msgKey)),
+            msgHead = sodium.crypto_secretbox( //TODO: real concatenation of to 32bit ints here!
+                        new Buffer(nacl.encode_utf8(
                             JSON.stringify([state.counter_send,
                                 state.previous_counter_send,
                                 mu.hexToBase64(state.dh_ratchet_key_send_pub),
-                                mu.hexToBase64(nacl.to_hex(nonce1))])),
+                                nonce1.toString('base64')]))),
                         nonce2,
-                        nacl.from_hex(state.header_key_send));
+                        new Buffer(nacl.from_hex(state.header_key_send)));
         var ciphertext = {
-            'nonce' : mu.hexToBase64(nacl.to_hex(nonce2)),
-            'head'  : mu.hexToBase64(nacl.to_hex(msgHead)),
-            'body'  : mu.hexToBase64(nacl.to_hex(msgBody))
+            'nonce' : nonce2.toString('base64'),
+            'head'  : msgHead.toString('base64'),
+            'body'  : msgBody.toString('base64')
                 //TODO mac!?
         }
-        mu.log('in SEND:', ciphertext);
+        mu.debug('in SEND:', ciphertext);
         state.counter_send += 1;
         state.chain_key_send = nacl.to_hex(cu.hmac(nacl.from_hex(state.chain_key_send), "1"));
         dsrc.axolotl_state.save(function(err, doc){
@@ -467,16 +473,17 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
 function decryptHeader(key, ciphertext, nonce) {
     //TODO: nonce in encrypted message
     var plainHdr;
-    mu.log('key:', key, 'text:', ciphertext, 'nonce', nonce);
+    mu.debug('key:', key, 'text:', ciphertext, 'nonce', nonce);
     var hexKey = key; //key was stored as hex or computed locally
     var hexCiphertext = mu.base64ToHex(ciphertext);
     var hexNonce = mu.base64ToHex(nonce);
 
     try { //TODO: use domains instead, not try/catch?
-        plainHdr = nacl.crypto_secretbox_open(
-                nacl.from_hex(hexCiphertext), 
-                nacl.from_hex(hexNonce), 
-                nacl.from_hex(hexKey));
+        plainHdr = sodium.crypto_secretbox_open(
+                new Buffer(ciphertext, 'base64'), 
+                new Buffer(nonce, 'base64'), 
+                new Buffer(key, 'hex'));
+        if (!plainHdr) return new Error('Header decryption failed!' + hexCiphertext + "c: " + ciphertext + typeof(ciphertext));
     } catch (err) {
         return new Error('Header decryption failed' + err.message);
     }
@@ -485,7 +492,7 @@ function decryptHeader(key, ciphertext, nonce) {
         return header;
     } catch (err) {
         mu.log('Invalid header format!', err.message);
-        return new Error('Invalid header format:' + err.message);
+        return new Error('Invalid header format:' + err.message + plainHdr );
     }
 }
 
@@ -506,8 +513,10 @@ function decryptBody(key, ciphertext, nonce) {
     var hexNonce = mu.base64ToHex(nonce);
 
     try { //TODO: use domains instead, not try/catch!
-        plaintext = nacl.crypto_secretbox_open(nacl.from_hex(hexCiphertext),
-                nacl.from_hex(hexNonce), nacl.from_hex(hexKey));
+        plaintext = sodium.crypto_secretbox_open(
+                new Buffer(nacl.from_hex(hexCiphertext)),
+                new Buffer(nacl.from_hex(hexNonce)),
+                new Buffer(nacl.from_hex(hexKey)));
     } catch (err) {
         //mu.debug(err, key, ciphertext, nonce);
         return new Error(err.message);
@@ -671,9 +680,9 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
         }
         var purportedHeaderKey = state.next_header_key_recv;
         var purportedRootKey, purportedNextHeaderKey, purportedChainKey;
-        var dh = nacl.to_hex(nacl.crypto_scalarmult(
-                nacl.from_hex(state.dh_ratchet_key_send),
-                nacl.from_hex(mu.base64ToHex(hdr.dh_ratchet_key)))),
+        var dh = nacl.to_hex(sodium.crypto_scalarmult(
+                new Buffer(nacl.from_hex(state.dh_ratchet_key_send)),
+                new Buffer(nacl.from_hex(mu.base64ToHex(hdr.dh_ratchet_key))))),
             input = cu.hmac(nacl.from_hex(state.root_key), dh);
         cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function keyDerivationCallback(key) {
             attemptDecryptionUsingDerivedKeyMaterial(dsrc, 

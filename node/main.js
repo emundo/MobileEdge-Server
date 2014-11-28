@@ -190,7 +190,10 @@ function handleEncrypted(msg, callback) {
             else {
                 axolotl.recvMessage(msg.id_token.mac, msg.payload, function(err, plaintext, state) {
                     if (err)
+                    {
+                        myutil.debug("error decrypting:", err)
                         callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_FAILURE") });
+                    }
                         //callback({ 'statusCode' : 500, 'message' : 'Error while decrypting.' });
                     else {
                         try { // TODO: use domains instead of try/catch!
