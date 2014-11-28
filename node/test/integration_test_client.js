@@ -463,9 +463,9 @@ describe('exchangeKeys', function ()
                 exchangeKeys(ID_token, function(keys, keyExchangeMessage, aliceParams, ID_token, bobID, stateAlice)
                 {
 
-                     expect(keyExchangeMessage, 'property: id').to.have.property('id').to.have.length(32);
-                     expect(keyExchangeMessage, 'property: eph0').to.have.property('eph0').to.have.length(32);
-                     expect(keyExchangeMessage, 'property: eph1').to.have.property('eph1').to.have.length(32); 
+                     expect(keyExchangeMessage, 'property: id').to.have.property('id').to.have.length(44);
+                     expect(keyExchangeMessage, 'property: eph0').to.have.property('eph0').to.have.length(44);
+                     expect(keyExchangeMessage, 'property: eph1').to.have.property('eph1').to.have.length(44); 
                     
                     done();
                 });

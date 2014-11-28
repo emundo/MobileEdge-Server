@@ -48,9 +48,9 @@ var getIDKey = function() {
     var str = fs.readFileSync('./private_ec_id', {encoding: 'utf8'});
     var buf = new Buffer(str, 'base64');
     var id = JSON.parse(buf.toString('utf8'));
-    id.secretKey = id.boxSk;
-    id.publicKey = id.boxPk;
-    return mu.map(nacl.from_hex, id);
+    id.secretKey = new Buffer(id.boxSk, 'hex');
+    id.publicKey = new Buffer(id.boxPk, 'hex');
+    return id;
 };
 
 /**
@@ -100,9 +100,9 @@ function makeIdentity(id_token, keyExchangeMsg, callback) {
 var deriveKeysBob = exports.deriveKeysBob =
 function deriveKeysBob(mine, their, callback) {
     mu.debug('deriveKeysBob', mine.id, their.eph0);
-    var part1 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.id))),
-        part2 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.id.secretKey), new Buffer(their.eph0))),
-        part3 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.eph0)));
+    var part1 = sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.id, 'base64')),
+        part2 = sodium.crypto_scalarmult(new Buffer(mine.id.secretKey), new Buffer(their.eph0, 'base64')),
+        part3 = sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.eph0, 'base64'));
     deriveKeys(part1, part2, part3, callback)
 }
 
@@ -115,10 +115,10 @@ function deriveKeysBob(mine, their, callback) {
  */
 var deriveKeysAlice = exports.deriveKeysAlice =
 function deriveKeysAlice(mine, their, callback) {
-    mu.debug('deriveKeysAlice', mine.id, their.eph0);
-    var part1 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.id.secretKey), new Buffer(their.eph0))),
-        part2 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.id))),
-        part3 = nacl.to_hex(sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.eph0)));
+    mu.debug('deriveKeysAlice', mine.id, their.id);
+    var part1 = sodium.crypto_scalarmult(mine.id.secretKey, new Buffer(their.eph0, 'base64')),
+        part2 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.id, 'base64')),
+        part3 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.eph0, 'base64'));
     deriveKeys(part1, part2, part3, callback)
 }
 
@@ -131,7 +131,9 @@ function deriveKeysAlice(mine, their, callback) {
  * @param {Function} callback function to call when done
  */
 function deriveKeys(part1, part2, part3, callback) {
-    var master_key = sodium.crypto_hash(new Buffer(nacl.from_hex(part1+part2+part3))); // Note that this is SHA512 and not SHA256. It does not have to be.
+    var master_key = sodium.crypto_hash(
+            Buffer.concat([part1, part2, part3], 3 * sodium.crypto_scalarmult_BYTES)
+            ); // Note that this is SHA512 and not SHA256. It does not have to be.
     cu.hkdf(master_key, 'MobileEdge', 5*32, function(key){
         res = {
             'rk'    : key.substr(0, key.length / 5),
@@ -165,14 +167,14 @@ function keyAgreement(keyExchangeMsg, callback) {
     var myId = getIDKey(),                  // B
         myEph0 = newDHParam(),       // B_0
         myEph1 = newDHParam();       // B_1
-    var theirId = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['id'])), // A
-        theirEph0 = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['eph0'])),                   // A_0
+    var theirId = keyExchangeMsg['id'].toString('hex'), // A
+        theirEph0 = keyExchangeMsg['eph0'].toString('hex'),                   // A_0
         theirEph1 = null;                   // A_1 (unused, remove?)
     var theirIdMac = keyExchangeMsg.id_mac;
     mu.log("#########################id_mac1:", keyExchangeMsg.id_mac);
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysBob({ 'id': myId, 'eph0' : myEph0, 'eph1' : myEph1 },
-                mu.map(nacl.from_hex, mu.map(mu.base64ToHex,keyExchangeMsg)),
+                keyExchangeMsg,
                 function(res) {
         mu.log("#########################id_mac2:", theirIdMac);
         state.id_mac                = theirIdMac;
@@ -195,9 +197,9 @@ function keyAgreement(keyExchangeMsg, callback) {
                 callback(err);
             } else {
                 callback(null, {
-                    'id': mu.hexToBase64(nacl.to_hex(myId.publicKey)),
-                    'eph0' : mu.hexToBase64(nacl.to_hex(myEph0.publicKey)),
-                    'eph1': mu.hexToBase64(nacl.to_hex(myEph1.publicKey))
+                    'id': myId.publicKey.toString('base64'),
+                    'eph0' : myEph0.publicKey.toString('base64'),
+                    'eph1': myEph1.publicKey.toString('base64')
                 }, res, state);
             }
         });
@@ -227,12 +229,13 @@ exports.keyAgreementAlice =
 function keyAgreementAlice(myParams, keyExchangeMsg, callback) {
     var myId = myParams.id,            // A
         myEph0 = myParams.eph0;       // A_0
-    var theirId = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['id'])),                     // B
-        theirEph0 = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['eph0'])),             // B_0
-        theirEph1 = nacl.from_hex(mu.base64ToHex(keyExchangeMsg['eph1']));                 // B_1 
+    mu.debug('keyAgreementAlice', keyExchangeMsg);
+    var theirId = keyExchangeMsg['id'],                     // B
+        theirEph0 = keyExchangeMsg['eph0'],             // B_0
+        theirEph1 = keyExchangeMsg['eph1'];                 // B_1 
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysAlice({ 'id': myId, 'eph0' : myEph0 },
-                mu.map(nacl.from_hex, mu.map(mu.base64ToHex, keyExchangeMsg)), 
+                { 'id': theirId, 'eph0' : theirEph0, 'eph1' : theirEph1 }, 
                 function(res) {
         callback(null, res);
     });
@@ -474,15 +477,11 @@ function decryptHeader(key, ciphertext, nonce) {
     //TODO: nonce in encrypted message
     var plainHdr;
     mu.debug('key:', key, 'text:', ciphertext, 'nonce', nonce);
-    var hexKey = key; //key was stored as hex or computed locally
-    var hexCiphertext = mu.base64ToHex(ciphertext);
-    var hexNonce = mu.base64ToHex(nonce);
-
     try { //TODO: use domains instead, not try/catch?
         plainHdr = sodium.crypto_secretbox_open(
                 new Buffer(ciphertext, 'base64'), 
                 new Buffer(nonce, 'base64'), 
-                new Buffer(key, 'hex'));
+                new Buffer(key, 'hex')); //key was stored as hex or computed locally
         if (!plainHdr) return new Error('Header decryption failed!' + hexCiphertext + "c: " + ciphertext + typeof(ciphertext));
     } catch (err) {
         return new Error('Header decryption failed' + err.message);

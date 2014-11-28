@@ -42,8 +42,8 @@ function performKeyExchange(callback) {
     var aliceParams = axolotl.genParametersAlice();
     var aliceKeyExchangeMsg = {    // extract public keys
         'id_mac': aliceID,
-        'id'    : myutil.hexToBase64(nacl.to_hex(aliceParams['id']['publicKey'])),
-        'eph0'  : myutil.hexToBase64(nacl.to_hex(aliceParams['eph0']['publicKey']))
+        'id'    : aliceParams['id']['publicKey'],
+        'eph0'  : aliceParams['eph0']['publicKey']
     };
     axolotl.keyAgreement(aliceKeyExchangeMsg, function(err, ourKeyExchangeMsg){
         if (err) {
