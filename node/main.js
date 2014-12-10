@@ -326,29 +326,26 @@ function handlePrekeyRequest(msg, callback)
     } 
     else 
     {
-        token.verify_id(msg.pkreq.id_token, function(result) 
+        prekey.get(msg.pkreq.id, function(err, doc) 
         {
-            prekey.get(msg.pkreq.id_token.mac, function(err, doc) 
+            if (err || !doc) 
             {
-                if (err || !doc) 
-                {
-                    callback({ 
-                        'statusCode' : 404, 
-                        'message' : createErrorObject("ERROR_CODE_PREKEY_GET_NOT_FOUND"), 
-                        'toBeEncrypted' : true ,
-                        'to' : msg.from
-                    });
-                } 
-                else 
-                {
-                    callback({ 
-                        'statusCode' : 200, 
-                        'message' : { 'type' : 'PKHOUT', 'pk' : { 'kid' : doc.key_id , 'base' : doc.base_key } }, 
-                        'toBeEncrypted' : true,
-                        'to' : msg.from
-                    });
-                }
-            });
+                callback({ 
+                    'statusCode' : 404, 
+                    'message' : createErrorObject("ERROR_CODE_PREKEY_GET_NOT_FOUND"), 
+                    'toBeEncrypted' : true ,
+                    'to' : msg.from
+                });
+            } 
+            else 
+            {
+                callback({ 
+                    'statusCode' : 200, 
+                    'message' : { 'type' : 'PKHOUT', 'pk' : { 'kid' : doc.key_id , 'base' : doc.base_key } }, 
+                    'toBeEncrypted' : true,
+                    'to' : msg.from
+                });
+            }
         });
     }
 }
@@ -427,11 +424,10 @@ function dispatch(context, data)
     catch (err) 
     { // not a valid message
         respond_cb({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_FORMAT") });
-        //respond_cb({ 'statusCode' : 400, 'message' : 'Request did not contain valid JSON.' });
         return;
     }
     switch (msg.type) 
-    {
+    { // TODO: remove some of these types?
     case 'IDREQ':
         handleIdentityRequest(msg, respond_cb);
         break;
@@ -455,24 +451,21 @@ function dispatch(context, data)
  *
  * The server expects all messages to have the following format:
  *  { 
+ *      "v" :  { ... },
  *      "type" : ... ,
- *      "id_token" :  { ... },
  *      ...
  *  }
  *  
- * The existing message types are: "IDREQ" (id request), "IDRFS" (id refresh),
- * and "KEYXC" (key exchange).
- * The id_token field may, of course, be omitted (only) in an id request.
- * If a message type is not given, an encrypted message is assumed. Then
- * the message is expected to have the field "payload", which corresponds to the
- * encrypted JSON-encoded "real" message.
- * This message, once decrypted and JSON.parse()d, is expected to have the format:
+ * The existing message types are: "KEYXC" (key exchange), "CRYPT" (encrypted message).
+ * For "CRYPT" the message is expected to have the fields 'head', 'body', and 'from', 
+ * Once decrypted and JSON.parse()d, the inner message is expected to have the format:
  *  {
  *      "type" : ... ,
  *      ...
  *  }
  * The types for the decrypted messages are:
- * "PKPUT" (prekey put/push) and "PKREQ" (prekey request).
+ * "IPKPUSH" (initial prekey put/push), "PKREQ" (prekey request).
+ * "PKPUSH" (prekey put/push).
  * These messages are expected to have a "pk" and "pkreq" attribute, respectively,
  * which specify the prekey to be pushed or, the id of the user whose
  * prekey is requested.
