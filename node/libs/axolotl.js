@@ -755,3 +755,32 @@ function recvMessage(identity, ciphertext, callback) {
     });
 }
 
+/**
+ * @description Attempts to decrypt the sender's public key encrypted using (something
+ *  similar to) DHIES
+ *
+ * @param {String} from - encrypted public identity key (base64) of the sender 
+ * @param {String} eph - ephemeral public key used for DHIES
+ * @param {Function} callback - the function to be called when decryption is 
+ *  finished or it fails. Takes an err parameter, to indicate any errors and a 
+ *  "from" parameter if decryption was successful.
+ */
+exports.decryptSenderInformation = function decryptSenderInformation(from, eph, callback)
+{
+    var dh = sodium.crypto_scalarmult(getIDKey().secretKey, new Buffer(eph, 'base64'));
+    cu.hkdf(dh, 'MobileEdge PubKeyEncrypt', 32, function (key) {
+        var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(from, 'base64')]);
+        var paddedFrom = buf.slice(0,-24);
+        var nonce = buf.slice(-24);
+        var decrypted = sodium.crypto_secretbox_open(key, paddedFrom, nonce);
+        if (decrypted)
+        {
+            callback (null, decrypted);
+        } 
+        else
+        {
+            callback(new Error("Decryption of sender information failed."));
+        }
+    });
+}
+

@@ -134,33 +134,26 @@ function handleIdentityRefresh(msg, callback) {
  *  locally. 
  */
 function handleKeyExchange(msg, callback) {
-    if (!msg.id_token)
-        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_ID_NOT_GIVEN") });
-        //callback({ 'statusCode' : 400, 'message' : 'No ID for key exchange.' });
-    else {
-        token.verify_id(msg.id_token, function(result){
-            if (result !== token.VALID)
-                callback({ 'statusCode' : 403, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_ID_INVALID") });
-                //callback({ 'statusCode' : 403, 'message' : 'Could not perform key exchange. Invalid ID.' });
-            else if (!msg.keys || !msg.keys.id || !msg.keys.eph0)
-                callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_NO_MESSAGE") });
-                //callback({ 'statusCode' : 400, 'message' : 'No key exchange message.' });
-            else {
-                var theirKeyExchange = {
-                    'id_mac': msg.id_token.mac,
-                    'id'    : msg.keys.id,
-                    'eph0'  : msg.keys.eph0
-                };
-                axolotl.keyAgreement(theirKeyExchange, function(err, ourKeyExchange) {
-                    if (err) {
-                callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_FAILURE") });
-                        //callback({ 'statusCode' : 500, 'message' : 'Could not perform key exchange.' });
-                    } else {
-                        callback({ 'statusCode' : 200, 'message' : ourKeyExchange });
-                    }
-                }, true);
-            }
+    if (!msg.keys || !msg.keys.id || !msg.keys.eph0)
+    {
+        callback({ 
+            'statusCode' : 400,
+            'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_NO_MESSAGE") 
         });
+    }
+    else 
+    {
+        var theirKeyExchange = {
+            'id'    : msg.keys.id,
+            'eph0'  : msg.keys.eph0
+        };
+        axolotl.keyAgreement(theirKeyExchange, function(err, ourKeyExchange) {
+            if (err) {
+                callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_FAILURE") });
+            } else {
+                callback({ 'statusCode' : 200, 'message' : ourKeyExchange });
+            }
+        }, true);
     }
 }
 
@@ -176,48 +169,55 @@ function handleKeyExchange(msg, callback) {
  *  message has been handled. This is usually just passed on to the next handler.
  */
 function handleEncrypted(msg, callback) {
-    if (!msg.id_token)
-        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_ID_NOT_GIVEN") });
-        //callback({ 'statusCode' : 400, 'message' : 'No ID given.' });
-    else if (!msg.payload)
-        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_NO_MESSAGE") });
-        //callback({ 'statusCode' : 400, 'message' : 'No encrypted message.' });
-    else {
-        token.verify_id(msg.id_token, function(result) {
-            if (result !== token.VALID)
-                callback({ 'statusCode' : 403, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_ID_INVALID") });
-                //callback({ 'statusCode' : 403, 'message' : 'Cannot decrypt. Invalid Token.' });
+    function receive (from)
+    {
+        axolotl.recvMessage(from, msg, function(err, plaintext, state)
+        {
+            if (err)
+            {
+                myutil.debug("error decrypting:", err)
+                callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_FAILURE") });
+            }
             else {
-                axolotl.recvMessage(msg.id_token.mac, msg.payload, function(err, plaintext, state) {
-                    if (err)
-                    {
-                        myutil.debug("error decrypting:", err)
-                        callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_FAILURE") });
-                    }
-                        //callback({ 'statusCode' : 500, 'message' : 'Error while decrypting.' });
-                    else {
-                        try { // TODO: use domains instead of try/catch!
-                            decrypted_msg = JSON.parse(plaintext);
-                        } catch (err) {
-                            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_FORMAT") }); // 400: Bad Request
-                            //callback({ 'statusCode' : 400, 'message' : 'Invalid message format.' }); // 400: Bad Request
-                        }
-                        if (!decrypted_msg.type)
-                            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_TYPE") }); // 400: Bad Request
-                            //callback({ 'statusCode' : 400, 'message' : 'Decrypted message has no type.' }); // 400: Bad Request
-                        else {
-                            decrypted_msg.from = msg.id_token.mac;
-                            if ('PKPUT' === decrypted_msg.type)
-                                handlePrekeyPush(decrypted_msg, callback);
-                            else if ('PKREQ' === decrypted_msg.type)
-                                handlePrekeyRequest(decrypted_msg, callback);
-                            // TODO: handle other message types?
-                        }
-                    }
-                });
+                try { // TODO: use domains instead of try/catch!
+                    decrypted_msg = JSON.parse(plaintext);
+                } catch (err) {
+                    callback({ 
+                        'statusCode' : 400, // 400: Bad Request
+                        'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_FORMAT") 
+                    });
+                }
+                if (!decrypted_msg.type)
+                    callback({ 
+                        'statusCode' : 400, // 400: Bad Request
+                        'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_TYPE") 
+                    });
+                else {
+                    decrypted_msg.from = from;
+                    if ('PKPUT' === decrypted_msg.type)
+                        handlePrekeyPush(decrypted_msg, callback);
+                    else if ('PKREQ' === decrypted_msg.type)
+                        handlePrekeyRequest(decrypted_msg, callback);
+                    // TODO: handle other message types?
+                }
             }
         });
     }
+    if (msg.eph)
+    { // ephemeral key attached, so assume "from" is encrypted: 
+        axolotl.decryptSenderInformation(msg.from, msg.eph, function (err, from)
+        {
+            if (err)
+            { // try again using normal "from" field
+                receive(msg.from);
+            }
+            else
+            {
+                receive(from);
+            }
+        });
+    }
+    receive(msg.from);
 }
 
 /**
@@ -372,8 +372,11 @@ function dispatch(context, data) {
     case 'KEYXC':
         handleKeyExchange(msg, respond_cb);
         break;
-    default:
+    case 'CRYPT':
         handleEncrypted(msg, respond_cb);
+        break;
+    default:
+        respond_cb({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_FORMAT") });
     }
 }
 
