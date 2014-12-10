@@ -51,7 +51,6 @@ exports.hmac = function hmac(key, data) {
 }
 */
 exports.hmac = function hmac(key, data) {
-    //mu.debug("Hashing:", nacl.to_hex(key), data);
     var opad = new Buffer(64), // outer padding
         ipad = new Buffer(64); // inner padding 
     for (var i = 0; i < opad.length; i++)
@@ -65,8 +64,6 @@ exports.hmac = function hmac(key, data) {
 }
 
 function _hmac(key, data) {
-    //mu.debug("Hashing:", nacl.to_hex(key), data);
-    //var hmac = crypto.createHmac('sha256', nacl.to_hex(key));// might decode_latin1 be better here?
     var hmac = crypto.createHmac('sha256', key);
     hmac.update(data);
     return hmac.digest();
@@ -75,21 +72,19 @@ exports._hmac = _hmac;
 
 /**
  * @callback module:crypto_util.KeyDeriveCallback
- * @param {String} key - the derived key material
+ * @param {Buffer} key - the derived key material
  */
 /**
  * @description Derives keys using HKDF.
  *
- * @param {Uint8Array} inputKeyMaterial the input key material
+ * @param {Buffer} inputKeyMaterial the input key material
  * @param {String} info info to be woven into key derivation
  * @param {Number} length the length of the key material to be derived
  * @param {module:crypto_util.KeyDeriveCallback} callback the function
  *  to call with the key when finished
  */
 exports.hkdf = function hkdf(inputKeyMaterial, info, length, callback) {
-    inputKeyMaterial = nacl.decode_latin1(inputKeyMaterial);
-    var hkdf = new HKDF('sha256', 'salty', inputKeyMaterial),
-        result = {};
+    var hkdf = new HKDF('sha256', 'salty', inputKeyMaterial);
     hkdf.derive(info , length, function(key) {
         //key = key.toString('hex');
         callback(key);

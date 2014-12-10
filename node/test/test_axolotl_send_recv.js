@@ -24,8 +24,6 @@ function performKeyExchange(callback) {
         stateAlice.next_header_key_recv  = keysAlice.nhk1;    // -"-
         stateAlice.dh_identity_key_send  = aliceParams.id.secretKey;
         stateAlice.dh_identity_key_send_pub  = aliceParams.id.publicKey;
-//        stateAlice.dh_identity_key_recv  = nacl.to_hex(keyExchangeMsgBob.id);
-//        stateAlice.dh_ratchet_key_recv   = nacl.to_hex(keyExchangeMsgBob.eph1);   // Storing secret (private) key here. Should we store the whole key pair instead?
         stateAlice.dh_identity_key_recv  = new Buffer(keyExchangeMsgBob.id, 'base64');
         stateAlice.dh_ratchet_key_recv   = new Buffer(keyExchangeMsgBob.eph1, 'base64');   // Storing secret (private) key here. Should we store the whole key pair instead?
 

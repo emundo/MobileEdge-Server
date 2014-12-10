@@ -65,8 +65,8 @@ var getIDKey = function() {
  */
 var generateIDKey = function() {
     var params = newDHParam();
-    params.secretKey = nacl.to_hex(params.secretKey);
-    params.publicKey = nacl.to_hex(params.publicKey);
+    params.secretKey = params.secretKey.toString('base64');
+    params.publicKey = params.publicKey.toString('base64');
     mu.debug('Buff:', (new Buffer(JSON.stringify(params))).toString('base64'));
     return params;
 };
@@ -100,9 +100,9 @@ function makeIdentity(id_token, keyExchangeMsg, callback) {
 var deriveKeysBob = exports.deriveKeysBob =
 function deriveKeysBob(mine, their, callback) {
     mu.debug('deriveKeysBob', mine.id, their.eph0);
-    var part1 = sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.id, 'base64')),
-        part2 = sodium.crypto_scalarmult(new Buffer(mine.id.secretKey), new Buffer(their.eph0, 'base64')),
-        part3 = sodium.crypto_scalarmult(new Buffer(mine.eph0.secretKey), new Buffer(their.eph0, 'base64'));
+    var part1 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.id, 'base64')),
+        part2 = sodium.crypto_scalarmult(mine.id.secretKey, new Buffer(their.eph0, 'base64')),
+        part3 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.eph0, 'base64'));
     deriveKeys(part1, part2, part3, callback)
 }
 
@@ -125,9 +125,9 @@ function deriveKeysAlice(mine, their, callback) {
 /**
  * @description Key derivation wrapper common to Alice and Bob.
  * 
- * @param {String} part1 first part of the input material
- * @param {String} part2 second part of the input material
- * @param {String} part3 third part of the input material
+ * @param {Buffer} part1 first part of the input material
+ * @param {Buffer} part2 second part of the input material
+ * @param {Buffer} part3 third part of the input material
  * @param {Function} callback function to call when done
  */
 function deriveKeys(part1, part2, part3, callback) {
@@ -136,11 +136,6 @@ function deriveKeys(part1, part2, part3, callback) {
             ); // Note that this is SHA512 and not SHA256. It does not have to be.
     cu.hkdf(master_key, 'MobileEdge', 5*32, function(key){
         res = {
-//            'rk'    : key.substr(0, key.length / 5),
-//            'hk'   : key.substr(key.length / 5, key.length / 5),
-//            'nhk0'   : key.substr(2 * key.length / 5, key.length / 5),
-//            'nhk1'  : key.substr(3 * key.length / 5, key.length / 5),
-//            'ck'  : key.substr(4 * key.length / 5)
             'rk'    : key.slice(0, key.length / 5),
             'hk'   : key.slice(key.length / 5, 2 * key.length / 5),
             'nhk0'   : key.slice(2 * key.length / 5, 3 * key.length / 5),
@@ -254,8 +249,8 @@ function advanceRatchetSend(state, callback) {
     state.dh_ratchet_key_send_pub = updatedKey.publicKey;
     state.header_key_send = state.next_header_key_send;
     var dh = sodium.crypto_scalarmult(
-                new Buffer(state.dh_ratchet_key_send, 'hex'),
-                new Buffer(state.dh_ratchet_key_recv, 'hex')),
+                state.dh_ratchet_key_send,
+                state.dh_ratchet_key_recv),
         input = cu.hmac(state.root_key, dh)
     cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function (key) {
         state.root_key = key.slice(0, key.length / 3);
@@ -286,8 +281,8 @@ function advanceRatchetSend(state, callback) {
 /**
  * @description Takes a message and encrypts it to the receiver, advancing the Axolotl
  * ratchet.
- * @param {string} state - the Axolotl state associated with the recipient of the message.
- * @param {string} msg - the message to be encrypted and sent
+ * @param {string} identity - the public key (base64) associated with the recipient of the message.
+ * @param {string} msg - the message (utf8) to be encrypted and sent
  * @param {EncryptionCallback} callback - the function to be called once the msg is safely encrypted
  *  Takes an error parameter (if, for instance, encryption is not possible) and
  *  the ciphertext, as well as the new state (AxolotlState) the application
@@ -361,9 +356,9 @@ function sendMessage(identity, msg, callback) {
  * @description Advance the ratchet state with the given client when receiving a message.
  *
  * @param {AxolotlState} state the state with a given client
- * @param {String} purportedRootKey the purported new root key to be written to the state
- * @param {String} purportedHeaderKey the purported new header key to be written to the state
- * @param {String} purportedNextHeaderKey the purported new next header key to be 
+ * @param {Buffer} purportedRootKey the purported new root key to be written to the state
+ * @param {Buffer} purportedHeaderKey the purported new header key to be written to the state
+ * @param {Buffer} purportedNextHeaderKey the purported new next header key to be 
  *  written to the state
  * @param {String} purportedDHRatchetKey the purported DH ratchet key to be written to the state.
  *  Given as a base64 string. needs to be converted!
@@ -419,10 +414,10 @@ function try_skipped_header_and_message_keys(state, msg) {
  *  area (associating it with the header key).
  *
  * @param {Array} stagingArea - the staging area to save the keys to
- * @param {String} HKr the header key for reception
+ * @param {Buffer} HKr the header key for reception
  * @param {Number} Nr the "old" message counter
  * @param {Number} Np purported "new" message counter
- * @param {String} CKr the (reception) chain key
+ * @param {Buffer} CKr the (reception) chain key
  * @return {Object} an object containing the last computed chain key, message key, and
  *  the possibly populated staging area.
  */
@@ -475,9 +470,9 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
 /**
  * @description Decrypts a header ciphertext with a given key and corresponding nonce.
  *
- * @param {String} key - the header key
- * @param {String} ciphertext - the encrypted message header
- * @param {String} nonce - the corresponding nonce
+ * @param {Buffer} key - the header key
+ * @param {String} ciphertext - the encrypted message header (base64)
+ * @param {String} nonce - the corresponding nonce (base64)
  * @return {Error|Array} either an Error if decryption failed, or the Array object corresponding
  *  to the decrypted header.
  */
@@ -507,9 +502,9 @@ function decryptHeader(key, ciphertext, nonce) {
 /**
  * @description Decrypts a message body ciphertext, given a corresponding key and nonce.
  *
- * @param {String} key - the message key
- * @param {String} ciphertext - the message ciphertext
- * @param {String} nonce - the corresponding nonce
+ * @param {Buffer} key - the message key
+ * @param {String} ciphertext - the message ciphertext (base64)
+ * @param {String} nonce - the corresponding nonce (base64)
  * @return {Error|String} either an Error if decryption failed, or a String containing 
  *  the decrypted message.
  */
@@ -534,7 +529,7 @@ function decryptBody(key, ciphertext, nonce) {
  * @param {AxolotlState} state - the state
  * @param {String} plaintext - the plaintext of the message
  * @param {Number} Np - message counter to update the one in the state with
- * @param {String} CKp - the new purported chain key to save to the state
+ * @param {Buffer} CKp - the new purported chain key to save to the state
  * @param {Function} callback - the callback to call with plaintext and updated state
  */
 function finish(dsrc, stagingArea, plaintext, Np, CKp, callback) {
@@ -624,8 +619,8 @@ function handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingAre
  * @param {AxolotlState} state - the state for the client
  * @param {CiphertextMessage} ciphertext - the encrypted message object
  * @param {Object} hdr - the parsed message header
- * @param {String} key - the derived key material
- * @param {String} purportedHeaderKey - the purported header key. Needed to update ratchet.
+ * @param {Buffer} key - the derived key material
+ * @param {Buffer} purportedHeaderKey - the purported header key. Needed to update ratchet.
  * @param {Array} stagingArea - the staging area for skipped keys
  * @param {DecryptionCallback} callback - the function to call with the decrypted message or an error
  */
@@ -686,7 +681,7 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
         var purportedHeaderKey = state.next_header_key_recv;
         var purportedRootKey, purportedNextHeaderKey, purportedChainKey;
         var dh = sodium.crypto_scalarmult(
-                new Buffer(state.dh_ratchet_key_send),
+                state.dh_ratchet_key_send,
                 new Buffer(hdr.dh_ratchet_key, 'base64')),
             input = cu.hmac(state.root_key, dh);
         cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function keyDerivationCallback(key) {
@@ -708,8 +703,8 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
  * @description Takes an encrypted message and an identifier of the sender and decrypts the
  *  message, advancing the Axolotl state as necessary.
  *
- * @param {String} id_mac - the id_mac of the sender 
- * @param {String} ciphertext - the ciphertext of the received message.
+ * @param {String} identity - the public identity key (base64) of the sender 
+ * @param {CiphertextMessage} ciphertext - the ciphertext object of the received message
  * @param {DecryptionCallback} callback the function to be called when decryption is 
  *  finished or it fails. Takes an err parameter, to indicate any errors(m, a
  *  cleartext parameter with the decrypted message, as well as the new
