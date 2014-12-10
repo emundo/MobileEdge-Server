@@ -306,8 +306,7 @@ function sendMessage(identity, msg, callback) {
                         new Buffer(
                             JSON.stringify([state.counter_send,
                                 state.previous_counter_send,
-                                state.dh_ratchet_key_send_pub.toString('base64'),
-                                nonce1.toString('base64')])),
+                                state.dh_ratchet_key_send_pub.toString('base64')])),
                         nonce2,
                         state.header_key_send);
         //Append the nonce to the end of ciphertext:
@@ -572,8 +571,7 @@ function parseHeader(header) {
     return {
         'msg_number'        : header[0],
         'prev_msg_number'   : header[1],
-        'dh_ratchet_key'    : header[2],
-        'nonce'             : header[3]
+        'dh_ratchet_key'    : header[2]
     };
 }
 
@@ -678,7 +676,7 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
     if (purportedHdr instanceof Error) {
         mu.log('Error: Failed to decrypt message header with next_header_key_recv.','\n\t', purportedHdr.message);
         callback(purportedHdr);
-    } else if (purportedHdr.length != 4) {
+    } else if (purportedHdr.length != 3) {
         var errmsg = 'Decrypted header has unexpected format.';
         handlePotentialError(new Error(errmsg), errmsg, callback);
     } else {
