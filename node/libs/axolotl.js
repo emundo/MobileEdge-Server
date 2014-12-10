@@ -312,8 +312,8 @@ function sendMessage(identity, msg, callback) {
                         state.header_key_send);
         var ciphertext = {
             'nonce' : nonce2.toString('base64'),
-            'head'  : msgHead.toString('base64'),
-            'body'  : msgBody.toString('base64')
+            'head'  : msgHead.slice(16).toString('base64'),
+            'body'  : msgBody.slice(16).toString('base64')
                 //TODO mac!?
         }
         mu.debug('in SEND:', ciphertext);
@@ -479,10 +479,11 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
 function decryptHeader(key, ciphertext, nonce) {
     //TODO: nonce in encrypted message
     var plainHdr;
+    var paddedCiphertext = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
     mu.debug('key:', key, 'text:', ciphertext, 'nonce', nonce);
     try { //TODO: use domains instead, not try/catch?
         plainHdr = sodium.crypto_secretbox_open(
-                new Buffer(ciphertext, 'base64'), 
+                paddedCiphertext,
                 new Buffer(nonce, 'base64'), 
                 key); //key was stored as Buffer or computed locally
         if (!plainHdr) return new Error('Header decryption failed!' +
@@ -511,12 +512,15 @@ function decryptHeader(key, ciphertext, nonce) {
 function decryptBody(key, ciphertext, nonce) {
     //TODO: nonce in encrypted message
     var plaintext;
+    var paddedCiphertext = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
 
     try { //TODO: use domains instead, not try/catch!
         plaintext = sodium.crypto_secretbox_open(
-                new Buffer(ciphertext, 'base64'),
+                paddedCiphertext,
                 new Buffer(nonce, 'base64'),
                 key);
+        if (!plaintext) return new Error('Body decryption failed! ' +
+               ciphertext + typeof(ciphertext));
     } catch (err) {
         return new Error(err.message);
     }
