@@ -72,25 +72,6 @@ var generateIDKey = function() {
 };
 
 /**
- * @description Saves a given public key for a given ID token to the database.
- * 
- * @param {Object} id_token the identity token of the client
- * @param {Object} keyExchangeMsg the client's new public key we want to store
- * @param {Function} callback the function to call when we (successfully or not)
- *  finished storing the public key.
- */
-exports.makeIdentity = 
-function makeIdentity(id_token, keyExchangeMsg, callback) {
-    var ident = new Identity();
-    var conn = global.db_conn;//mongoose.connect('mongodb://localhost/keys');
-    ident.id_mac = id_token['mac'];
-    ident.id_expires = id_token['info']['expires'];
-    ident.pubkey = keyExchangeMsg['pubkey']; //FIXME: remove this field?
-    ident.axolotl_state = axolotlKeyAgreement(keyExchangeMsg); //FIXME: this will not work at all...
-    ident.save(callback);
-}
-
-/**
  * @description Key derivation wrapper just for Bob.
  * 
  * @param {Object} mine Bob's key exchange message
