@@ -310,10 +310,15 @@ function sendMessage(identity, msg, callback) {
                                 nonce1.toString('base64')])),
                         nonce2,
                         state.header_key_send);
+        //Append the nonce to the end of ciphertext:
+        msgBody = Buffer.concat([msgBody.slice(16), nonce1], 
+                    msgBody.length - 16 + nonce1.length);
+        msgHead = Buffer.concat([msgHead.slice(16), nonce2], 
+                    msgHead.length - 16 + nonce2.length);
         var ciphertext = {
             'nonce' : nonce2.toString('base64'),
-            'head'  : msgHead.slice(16).toString('base64'),
-            'body'  : msgBody.slice(16).toString('base64')
+            'head'  : msgHead.toString('base64'),
+            'body'  : msgBody.toString('base64')
                 //TODO mac!?
         }
         mu.debug('in SEND:', ciphertext);
@@ -479,7 +484,10 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
 function decryptHeader(key, ciphertext, nonce) {
     //TODO: nonce in encrypted message
     var plainHdr;
-    var paddedCiphertext = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
+    var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
+    var nonce = buf.slice(-24);
+    var paddedCiphertext = buf.slice(0,-24);
+
     mu.debug('key:', key, 'text:', ciphertext, 'nonce', nonce);
     try { //TODO: use domains instead, not try/catch?
         plainHdr = sodium.crypto_secretbox_open(
@@ -512,7 +520,9 @@ function decryptHeader(key, ciphertext, nonce) {
 function decryptBody(key, ciphertext, nonce) {
     //TODO: nonce in encrypted message
     var plaintext;
-    var paddedCiphertext = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
+    var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
+    var nonce = buf.slice(-24);
+    var paddedCiphertext = buf.slice(0,-24);
 
     try { //TODO: use domains instead, not try/catch!
         plaintext = sodium.crypto_secretbox_open(
