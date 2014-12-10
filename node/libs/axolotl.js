@@ -399,8 +399,7 @@ function try_skipped_header_and_message_keys(state, msg) {
         if (purportedHdr instanceof Error) { // this skipped header key was not the right one
             continue;
         }
-        var purportedNonce = purportedHdr[3];
-        var plainMsg = decryptBody(state.skipped_hk_mk[i].mk, msg.body, purportedNonce);
+        var plainMsg = decryptBody(state.skipped_hk_mk[i].mk, msg.body);
         if (plainMsg instanceof Error) { // this message key was not the right one
             continue;
         }
@@ -515,7 +514,7 @@ function decryptHeader(key, ciphertext) {
  * @return {Error|String} either an Error if decryption failed, or a String containing 
  *  the decrypted message.
  */
-function decryptBody(key, ciphertext, nonce) {
+function decryptBody(key, ciphertext) {
     //TODO: nonce in encrypted message
     var plaintext;
     var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
@@ -611,7 +610,7 @@ function handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingAre
     var keys = stage_skipped_header_and_message_keys(stagingArea, state.header_key_recv, 
             state.counter_recv, hdr.msg_number, state.chain_key_recv);
     var purportedChainKey = keys.CKp;
-    var plaintext = decryptBody(keys.MK, ciphertext.body, hdr.nonce);
+    var plaintext = decryptBody(keys.MK, ciphertext.body);
     if (plaintext instanceof Error) {
         mu.log('Error: Failed to decrypt message body with purported message key (1).',
         '\n\t', plaintext.message);
@@ -647,7 +646,7 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
         );
     stagingArea = keys.stagingArea;
     purportedChainKey = keys.CKp;
-    var plaintext = decryptBody(keys.MK, ciphertext.body, hdr.nonce);
+    var plaintext = decryptBody(keys.MK, ciphertext.body);
     if (plaintext instanceof Error) {
         mu.log('Error: Failed to decrypt message body with purported message key (2).',
         '\n\t', plaintext.message);
