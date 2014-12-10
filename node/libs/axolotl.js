@@ -136,11 +136,16 @@ function deriveKeys(part1, part2, part3, callback) {
             ); // Note that this is SHA512 and not SHA256. It does not have to be.
     cu.hkdf(master_key, 'MobileEdge', 5*32, function(key){
         res = {
-            'rk'    : key.substr(0, key.length / 5),
-            'hk'   : key.substr(key.length / 5, key.length / 5),
-            'nhk0'   : key.substr(2 * key.length / 5, key.length / 5),
-            'nhk1'  : key.substr(3 * key.length / 5, key.length / 5),
-            'ck'  : key.substr(4 * key.length / 5)
+//            'rk'    : key.substr(0, key.length / 5),
+//            'hk'   : key.substr(key.length / 5, key.length / 5),
+//            'nhk0'   : key.substr(2 * key.length / 5, key.length / 5),
+//            'nhk1'  : key.substr(3 * key.length / 5, key.length / 5),
+//            'ck'  : key.substr(4 * key.length / 5)
+            'rk'    : key.slice(0, key.length / 5),
+            'hk'   : key.slice(key.length / 5, 2 * key.length / 5),
+            'nhk0'   : key.slice(2 * key.length / 5, 3 * key.length / 5),
+            'nhk1'  : key.slice(3 * key.length / 5, 4 * key.length / 5),
+            'ck'  : key.slice(4 * key.length / 5)
         };
         callback(res);
     });
@@ -170,23 +175,20 @@ function keyAgreement(keyExchangeMsg, callback) {
     var theirId = keyExchangeMsg['id'].toString('hex'), // A
         theirEph0 = keyExchangeMsg['eph0'].toString('hex'),                   // A_0
         theirEph1 = null;                   // A_1 (unused, remove?)
-    var theirIdMac = keyExchangeMsg.id_mac;
-    mu.log("#########################id_mac1:", keyExchangeMsg.id_mac);
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysBob({ 'id': myId, 'eph0' : myEph0, 'eph1' : myEph1 },
                 keyExchangeMsg,
                 function(res) {
-        mu.log("#########################id_mac2:", theirIdMac);
-        state.id_mac                = theirIdMac;
         state.root_key              = res.rk;
         state.chain_key_send        = res.ck; // Server is Bob. So we set CKs first.
         state.header_key_send       = res.hk;
         state.next_header_key_recv  = res.nhk0;
         state.next_header_key_send  = res.nhk1;
-        state.dh_identity_key_send  = nacl.to_hex(myId.publicKey);
-        state.dh_identity_key_recv  = nacl.to_hex(theirId);
-        state.dh_ratchet_key_send   = nacl.to_hex(myEph1.secretKey);   // Storing secret (private) key here. Should we store the whole key pair instead?
-        state.dh_ratchet_key_send_pub = nacl.to_hex(myEph1.publicKey);
+        state.dh_identity_key_send_pub  = myId.publicKey;
+        state.dh_identity_key_send  = myId.secretKey;
+        state.dh_identity_key_recv  = new Buffer(theirId,'base64');
+        state.dh_ratchet_key_send   = myEph1.secretKey;   // Storing secret (private) key here. Should we store the whole key pair instead?
+        state.dh_ratchet_key_send_pub = myEph1.publicKey;
         state.counter_send = 0;
         state.counter_recv = 0;
         state.previous_counter_send = 0;
@@ -248,17 +250,17 @@ function keyAgreementAlice(myParams, keyExchangeMsg, callback) {
  */
 function advanceRatchetSend(state, callback) {
     var updatedKey = newDHParam();
-    state.dh_ratchet_key_send = nacl.to_hex(updatedKey.secretKey);
-    state.dh_ratchet_key_send_pub = nacl.to_hex(updatedKey.publicKey);
+    state.dh_ratchet_key_send = updatedKey.secretKey;
+    state.dh_ratchet_key_send_pub = updatedKey.publicKey;
     state.header_key_send = state.next_header_key_send;
-    var dh =  nacl.to_hex(sodium.crypto_scalarmult(
-                new Buffer(nacl.from_hex(state.dh_ratchet_key_send)),
-                new Buffer(nacl.from_hex(state.dh_ratchet_key_recv)))),
-        input = cu.hmac(nacl.from_hex(state.root_key), dh)
+    var dh = sodium.crypto_scalarmult(
+                new Buffer(state.dh_ratchet_key_send, 'hex'),
+                new Buffer(state.dh_ratchet_key_recv, 'hex')),
+        input = cu.hmac(state.root_key, dh)
     cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function (key) {
-        state.root_key = key.substr(0, key.length / 3);
-        state.next_header_key_send = key.substr(key.length / 3, key.length / 3);
-        state.chain_key_send = key.substr(2 * (key.length / 3));
+        state.root_key = key.slice(0, key.length / 3);
+        state.next_header_key_send = key.slice(key.length / 3, 2 * key.length / 3);
+        state.chain_key_send = key.slice(2 * (key.length / 3));
         
         state.previous_counter_send = state.counter_send;
         state.counter_send = 0;
@@ -292,27 +294,27 @@ function advanceRatchetSend(state, callback) {
  *  is responsible of saving to persistent storage.
  */
 exports.sendMessage =
-function sendMessage(id_mac, msg, callback) {
+function sendMessage(identity, msg, callback) {
     //TODO: nonce in encrypted message
     var dsrc;
     function workerSend(state) {
-        var msgKey = cu.hmac(nacl.from_hex(state.chain_key_send), "0"),
+        var msgKey = cu.hmac(state.chain_key_send, "0"),
             nonce1 = new Buffer(sodium.crypto_secretbox_NONCEBYTES),
             nonce2 = new Buffer(sodium.crypto_secretbox_NONCEBYTES);
         sodium.randombytes(nonce1);
         sodium.randombytes(nonce2);
         var msgBody = sodium.crypto_secretbox(
-                        new Buffer(nacl.encode_utf8(msg)),
+                        new Buffer(msg, 'utf8'),
                         nonce1,
                         new Buffer(msgKey)),
             msgHead = sodium.crypto_secretbox( //TODO: real concatenation of to 32bit ints here!
-                        new Buffer(nacl.encode_utf8(
+                        new Buffer(
                             JSON.stringify([state.counter_send,
                                 state.previous_counter_send,
-                                mu.hexToBase64(state.dh_ratchet_key_send_pub),
-                                nonce1.toString('base64')]))),
+                                state.dh_ratchet_key_send_pub.toString('base64'),
+                                nonce1.toString('base64')])),
                         nonce2,
-                        new Buffer(nacl.from_hex(state.header_key_send)));
+                        state.header_key_send);
         var ciphertext = {
             'nonce' : nonce2.toString('base64'),
             'head'  : msgHead.toString('base64'),
@@ -321,7 +323,7 @@ function sendMessage(id_mac, msg, callback) {
         }
         mu.debug('in SEND:', ciphertext);
         state.counter_send += 1;
-        state.chain_key_send = nacl.to_hex(cu.hmac(nacl.from_hex(state.chain_key_send), "1"));
+        state.chain_key_send = new Buffer(cu.hmac(state.chain_key_send, "1"));
         dsrc.axolotl_state.save(function(err, doc){
             if (err) {
                 mu.log("ERROR in sendMessage:", err);
@@ -333,9 +335,9 @@ function sendMessage(id_mac, msg, callback) {
     }
     dsrc = new DataSource();
     var kk = dsrc.axolotl_state;
-    dsrc.axolotl_state.get(id_mac, function(err, state){
+    dsrc.axolotl_state.get(new Buffer(identity, 'base64'), function(err, state){
         if (!state) {
-            mu.debug("Error:", "No state for this client present. Could not even fetch it myself.\nID:", id_mac);
+            mu.debug("Error:", "No state for this client present. Could not even fetch it myself.\nID:", identity);
             if (err)
                 mu.log('Error from db:', err);
             callback(new Error("No state for this client present."));
@@ -369,13 +371,16 @@ function sendMessage(id_mac, msg, callback) {
  */
 function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey, 
         purportedNextHeaderKey, purportedDHRatchetKey) {
+
+    mu.debug("state in advRatRecv: ",state);
     state.root_key = purportedRootKey;
     state.header_key_recv = purportedHeaderKey;
     state.next_header_key_recv = purportedNextHeaderKey;
-    state.dh_ratchet_key_recv = mu.base64ToHex(purportedDHRatchetKey);
+    state.dh_ratchet_key_recv = new Buffer(purportedDHRatchetKey, 'base64');
     state.dh_ratchet_key_send = null;
     state.dh_ratchet_key_send_pub = null;
     state.ratchet_flag = true;
+    mu.debug("state AFTER advRatRecv: ",state);
     return state;
 }
 
@@ -391,6 +396,7 @@ function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey,
  */
 function try_skipped_header_and_message_keys(state, msg) {
     for (var i = 0; i < state.skipped_hk_mk.length; i++) {
+        mu.debug("try_skipped: key:", state.skipped_hk_mk[i].hk);
         var purportedHdr = decryptHeader(state.skipped_hk_mk[i].hk, msg.head, msg.nonce);
         if (purportedHdr instanceof Error) { // this skipped header key was not the right one
             continue;
@@ -423,7 +429,8 @@ function try_skipped_header_and_message_keys(state, msg) {
 function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, stage_result) {
     var msgKey,
         headerKey = HKr,
-        chainKey = nacl.from_hex(CKr);
+        chainKey = CKr;
+    mu.debug('stage_skipped: key:', headerKey);
     for (var i = Nr; i < Np; i++) {
         // Each message will have a different MK derived from the chain key.
         msgKey = cu.hmac(chainKey, "0");
@@ -431,8 +438,8 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
         chainKey = cu.hmac(chainKey, "1");
         stagingArea.push({
             'timestamp' : Date.now(),    //might be unnecessary.
-            'hk' : headerKey, 
-            'mk': nacl.to_hex(msgKey)
+            'hk' : headerKey,
+            'mk': new Buffer(msgKey)
         });
     }
     // One last step for the last message key. This one will not be
@@ -445,10 +452,10 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
         stagingArea.push({
             'timestamp' : Date.now(),    //might be unnecessary.
             'hk' : headerKey,
-            'mk': nacl.to_hex(msgKey)
+            'mk': new Buffer(msgKey)
         });
     }
-    return { 'CKp' : nacl.to_hex(chainKey), 'MK' : nacl.to_hex(msgKey), 'stagingArea' : stagingArea };
+    return { 'CKp' : chainKey, 'MK' : msgKey, 'stagingArea' : stagingArea };
 }
 
 /**
@@ -460,6 +467,7 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
  * @return {AxolotlState} the modified state
  */
 function commit_skipped_header_and_message_keys(state, stagingArea) {
+    mu.debug("commit: ", state.skipped_hk_mk, stagingArea);
     state.skipped_hk_mk = state.skipped_hk_mk.concat(stagingArea);
     return state;
 }
@@ -481,13 +489,14 @@ function decryptHeader(key, ciphertext, nonce) {
         plainHdr = sodium.crypto_secretbox_open(
                 new Buffer(ciphertext, 'base64'), 
                 new Buffer(nonce, 'base64'), 
-                new Buffer(key, 'hex')); //key was stored as hex or computed locally
-        if (!plainHdr) return new Error('Header decryption failed!' + hexCiphertext + "c: " + ciphertext + typeof(ciphertext));
+                key); //key was stored as Buffer or computed locally
+        if (!plainHdr) return new Error('Header decryption failed!' +
+               ciphertext + typeof(ciphertext));
     } catch (err) {
         return new Error('Header decryption failed' + err.message);
     }
     try {
-        var header = JSON.parse(nacl.decode_utf8(plainHdr));
+        var header = JSON.parse(plainHdr.toString('utf8'));
         return header;
     } catch (err) {
         mu.log('Invalid header format!', err.message);
@@ -507,20 +516,16 @@ function decryptHeader(key, ciphertext, nonce) {
 function decryptBody(key, ciphertext, nonce) {
     //TODO: nonce in encrypted message
     var plaintext;
-    var hexKey = key; //mu.base64ToHex(key);
-    var hexCiphertext = mu.base64ToHex(ciphertext);
-    var hexNonce = mu.base64ToHex(nonce);
 
     try { //TODO: use domains instead, not try/catch!
         plaintext = sodium.crypto_secretbox_open(
-                new Buffer(nacl.from_hex(hexCiphertext)),
-                new Buffer(nacl.from_hex(hexNonce)),
-                new Buffer(nacl.from_hex(hexKey)));
+                new Buffer(ciphertext, 'base64'),
+                new Buffer(nonce, 'base64'),
+                key);
     } catch (err) {
-        //mu.debug(err, key, ciphertext, nonce);
         return new Error(err.message);
     }
-    return nacl.decode_utf8(plaintext);
+    return plaintext.toString('utf8');
 }
 
 /**
@@ -628,9 +633,9 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
     state, ciphertext, hdr, key, purportedHeaderKey, stagingArea, callback) 
 {
     //TODO: nonce in encrypted message
-    var purportedRootKey = key.substr(0, key.length / 3);
-    var purportedNextHeaderKey = key.substr(key.length / 3, key.length / 3);
-    var purportedChainKey = key.substr(2 * (key.length / 3));
+    var purportedRootKey = key.slice(0, key.length / 3);
+    var purportedNextHeaderKey = key.slice(key.length / 3, 2 * key.length / 3);
+    var purportedChainKey = key.slice(2 * (key.length / 3));
     var keys = stage_skipped_header_and_message_keys( stagingArea,
             purportedHeaderKey, 0, hdr.msg_number, purportedChainKey
         );
@@ -660,6 +665,7 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
  */
 function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
     //TODO: nonce in encrypted message
+    mu.debug("handleWithoutKey: key:", state.next_header_key_recv);
     var purportedHdr = decryptHeader(state.next_header_key_recv, ciphertext.head, ciphertext.nonce);
     if (purportedHdr instanceof Error) {
         mu.log('Error: Failed to decrypt message header with next_header_key_recv.','\n\t', purportedHdr.message);
@@ -679,10 +685,10 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
         }
         var purportedHeaderKey = state.next_header_key_recv;
         var purportedRootKey, purportedNextHeaderKey, purportedChainKey;
-        var dh = nacl.to_hex(sodium.crypto_scalarmult(
-                new Buffer(nacl.from_hex(state.dh_ratchet_key_send)),
-                new Buffer(nacl.from_hex(mu.base64ToHex(hdr.dh_ratchet_key))))),
-            input = cu.hmac(nacl.from_hex(state.root_key), dh);
+        var dh = sodium.crypto_scalarmult(
+                new Buffer(state.dh_ratchet_key_send),
+                new Buffer(hdr.dh_ratchet_key, 'base64')),
+            input = cu.hmac(state.root_key, dh);
         cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function keyDerivationCallback(key) {
             attemptDecryptionUsingDerivedKeyMaterial(dsrc, 
                 state, ciphertext, hdr, key, purportedHeaderKey, stagingArea, callback);
@@ -711,13 +717,13 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
  *  storage.
  */
 exports.recvMessage = 
-function recvMessage(id_mac, ciphertext, callback) {
+function recvMessage(identity, ciphertext, callback) {
     //TODO: nonce in encrypted message
-    mu.log('IN RECEIVE:', ciphertext);
+    mu.debug('IN RECEIVE:', ciphertext);
     var dsrc = new DataSource();
-    dsrc.axolotl_state.get(id_mac, function(err, state) {
+    dsrc.axolotl_state.get(new Buffer(identity, 'base64'), function(err, state) {
         if (!state) {
-            return callback(new Error('recvMessage: could not find state for id '+id_mac))
+            return callback(new Error('recvMessage: could not find state for id '+identity))
         }
         /**
          * Staging area for skipped header and message keys.
@@ -729,6 +735,7 @@ function recvMessage(id_mac, ciphertext, callback) {
             return;
         }
         var purportedHdr;
+        mu.debug("recvMessage: key:", state.header_key_recv);
         if (state.header_key_recv  // we have a key which we can decrypt received headers with
             && !((purportedHdr = decryptHeader(state.header_key_recv, ciphertext.head, ciphertext.nonce)) instanceof Error)) {
             handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingArea, callback);

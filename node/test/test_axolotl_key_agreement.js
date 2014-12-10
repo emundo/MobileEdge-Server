@@ -37,9 +37,8 @@ describe('Key agreement', function(){
         before(function(){
             aliceParams = axolotl.genParametersAlice();
             aliceKeyExchangeMsg = {    // extract public keys
-                'id_mac': 'abcddead',
-                'id'    : myutil.hexToBase64(nacl.to_hex(aliceParams['id']['publicKey'])),
-                'eph0'  : myutil.hexToBase64(nacl.to_hex(aliceParams['eph0']['publicKey']))
+                'id'    : aliceParams['id']['publicKey'],
+                'eph0'  : aliceParams['eph0']['publicKey']
             }
         });
 
@@ -61,8 +60,8 @@ describe('Key agreement', function(){
         });
 
         after(function(done){
-            AxolotlState.remove({ id_mac : 'abcddead'}).exec();
-            var promise = AxolotlState.find({ id_mac : 'abcddead'}).exec();
+            AxolotlState.remove({ dh_identity_key_recv : aliceParams.id.publicKey}).exec();
+            var promise = AxolotlState.find({ dh_identity_key_recv : aliceParams.id.publicKey}).exec();
             promise.onFulfill(function (arg) {
                 expect(arg, 'id_mac removed successfully').to.be.empty;
                 done();

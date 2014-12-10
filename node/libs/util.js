@@ -68,7 +68,7 @@ exports.xor = function xor(a, b) {
     if (    (a instanceof Uint8Array || a instanceof Buffer) 
          && (b instanceof Uint8Array || b instanceof Buffer)) {
         var len = Math.max(a.length, b.length);
-        result = new Uint8Array(len);
+        result = new Buffer(len);
         for (var i = 0; i < len; i++) {
             result[i] = ((i >= a.length)? 0 : a[i]) ^ ((i >= b.length)? 0 : b[i]);
         }

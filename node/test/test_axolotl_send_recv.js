@@ -16,19 +16,18 @@ var AxolotlState = mongoose.model('AxolotlState');
  */
 function performKeyExchange(callback) {
     var stateAlice;
-    var aliceID = nacl.to_hex(nacl.random_bytes(32));
-    var bobID = nacl.to_hex(nacl.random_bytes(32));
     function updateStateAlice(keysAlice, keyExchangeMsgBob) {
         stateAlice.root_key              = keysAlice.rk;
         stateAlice.chain_key_recv        = keysAlice.ck; // Alice is Client. So we set CKr first.
         stateAlice.header_key_recv       = keysAlice.hk;
         stateAlice.next_header_key_send  = keysAlice.nhk0;    //FIXME: invert
         stateAlice.next_header_key_recv  = keysAlice.nhk1;    // -"-
-        stateAlice.dh_identity_key_send  = nacl.to_hex(aliceParams.id.secretKey);
+        stateAlice.dh_identity_key_send  = aliceParams.id.secretKey;
+        stateAlice.dh_identity_key_send_pub  = aliceParams.id.publicKey;
 //        stateAlice.dh_identity_key_recv  = nacl.to_hex(keyExchangeMsgBob.id);
 //        stateAlice.dh_ratchet_key_recv   = nacl.to_hex(keyExchangeMsgBob.eph1);   // Storing secret (private) key here. Should we store the whole key pair instead?
-        stateAlice.dh_identity_key_recv  = myutil.base64ToHex(keyExchangeMsgBob.id);
-        stateAlice.dh_ratchet_key_recv   = myutil.base64ToHex(keyExchangeMsgBob.eph1);   // Storing secret (private) key here. Should we store the whole key pair instead?
+        stateAlice.dh_identity_key_recv  = new Buffer(keyExchangeMsgBob.id, 'base64');
+        stateAlice.dh_ratchet_key_recv   = new Buffer(keyExchangeMsgBob.eph1, 'base64');   // Storing secret (private) key here. Should we store the whole key pair instead?
 
         stateAlice.counter_send = 0;
         stateAlice.counter_recv = 0;
@@ -36,14 +35,14 @@ function performKeyExchange(callback) {
         stateAlice.ratchet_flag = true;
         // Alice's state is not a data source, so we need to save this by hand.
         stateAlice.save(function (err, state) {
-            callback(aliceID, bobID);
+            expect(err).to.not.exist;
+            callback(aliceParams.id.publicKey, keyExchangeMsgBob.id);
         });
     }
     var aliceParams = axolotl.genParametersAlice();
     var aliceKeyExchangeMsg = {    // extract public keys
-        'id_mac': aliceID,
-        'id'    : aliceParams['id']['publicKey'],
-        'eph0'  : aliceParams['eph0']['publicKey']
+        'id'    : aliceParams['id']['publicKey'].toString('base64'),
+        'eph0'  : aliceParams['eph0']['publicKey'].toString('base64')
     };
     axolotl.keyAgreement(aliceKeyExchangeMsg, function(err, ourKeyExchangeMsg){
         if (err) {
@@ -56,7 +55,6 @@ function performKeyExchange(callback) {
                     throw new Error('Apparently Alice could not finish the key agreement.');
                 } else {
                     stateAlice = new AxolotlState();
-                    stateAlice.id_mac = bobID;
                     updateStateAlice(keys, ourKeyExchangeMsg);
                 }
             });
@@ -103,8 +101,8 @@ describe('Message sending and receiving', function(){
         });
 
         after(function () {
-            AxolotlState.remove({ id_mac : fromAlice }, function(){});
-            AxolotlState.remove({ id_mac : fromBob }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromAlice, 'base64') }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromBob, 'base64') }, function(){});
         });
     });
     /**
@@ -151,9 +149,10 @@ describe('Message sending and receiving', function(){
                 });
             });
         });
+
         after(function () {
-            AxolotlState.remove({ id_mac : fromAlice }, function(){});
-            AxolotlState.remove({ id_mac : fromBob }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromAlice, 'base64') }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromBob, 'base64') }, function(){});
         });
     });
     describe('Interleaved messages (<->)', function(){
@@ -204,8 +203,8 @@ describe('Message sending and receiving', function(){
         });
 
         after(function () {
-            AxolotlState.remove({ id_mac : fromAlice }, function(){});
-            AxolotlState.remove({ id_mac : fromBob }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromAlice, 'base64') }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromBob, 'base64') }, function(){});
         });
     });
 
@@ -241,8 +240,8 @@ describe('Message sending and receiving', function(){
         });
 
         after(function () {
-            AxolotlState.remove({ id_mac : fromAlice }, function(){});
-            AxolotlState.remove({ id_mac : fromBob }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromAlice, 'base64') }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromBob, 'base64') }, function(){});
         });
     });
 
@@ -278,8 +277,8 @@ describe('Message sending and receiving', function(){
         });
 
         after(function () {
-            AxolotlState.remove({ id_mac : fromAlice }, function(){});
-            AxolotlState.remove({ id_mac : fromBob }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromAlice, 'base64') }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromBob, 'base64') }, function(){});
         });
     });
 
@@ -323,8 +322,8 @@ describe('Message sending and receiving', function(){
         });
 
         after(function () {
-            AxolotlState.remove({ id_mac : fromAlice }, function(){});
-            AxolotlState.remove({ id_mac : fromBob }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromAlice, 'base64') }, function(){});
+            AxolotlState.remove({ dh_identity_key_recv : new Buffer(fromBob, 'base64') }, function(){});
         });
     });
 });

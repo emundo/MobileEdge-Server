@@ -17,7 +17,8 @@
  */
 
 const HKDF = require('hkdf'),
-      crypto = require('crypto');
+      crypto = require('crypto'),
+      sodium = require('sodium').api;
 var mu = require('./util.js'); // My Util
 
 /**
@@ -34,6 +35,7 @@ var mu = require('./util.js'); // My Util
  * @param {String} data - the data to be embedded in the HMAC
  * @return {Uint8Array} - the HMAC created from key and data as 32 bytes
  */
+/*
 exports.hmac = function hmac(key, data) {
     //mu.debug("Hashing:", nacl.to_hex(key), data);
     var opad = new Uint8Array(64), // outer padding
@@ -47,11 +49,25 @@ exports.hmac = function hmac(key, data) {
         outerParam = nacl.to_hex(mu.xor(key, opad)) + nacl.to_hex(innerHash);
     return nacl.crypto_hash_sha256(nacl.from_hex(outerParam));
 }
+*/
+exports.hmac = function hmac(key, data) {
+    //mu.debug("Hashing:", nacl.to_hex(key), data);
+    var opad = new Buffer(64), // outer padding
+        ipad = new Buffer(64); // inner padding 
+    for (var i = 0; i < opad.length; i++)
+        opad[i] = 0x5c;
+    for (var i = 0; i < ipad.length; i++)
+        ipad[i] = 0x36;
+    var innerParam = Buffer.concat([mu.xor(key, ipad), new Buffer(data)]),
+        innerHash = sodium.crypto_hash_sha256(innerParam),
+        outerParam = Buffer.concat([mu.xor(key, opad), innerHash]);
+    return sodium.crypto_hash_sha256(outerParam);
+}
 
 function _hmac(key, data) {
     //mu.debug("Hashing:", nacl.to_hex(key), data);
     //var hmac = crypto.createHmac('sha256', nacl.to_hex(key));// might decode_latin1 be better here?
-    var hmac = crypto.createHmac('sha256', nacl.decode_latin1(key));
+    var hmac = crypto.createHmac('sha256', key);
     hmac.update(data);
     return hmac.digest();
 }
@@ -75,7 +91,7 @@ exports.hkdf = function hkdf(inputKeyMaterial, info, length, callback) {
     var hkdf = new HKDF('sha256', 'salty', inputKeyMaterial),
         result = {};
     hkdf.derive(info , length, function(key) {
-        key = key.toString('hex');
+        //key = key.toString('hex');
         callback(key);
     });
 }

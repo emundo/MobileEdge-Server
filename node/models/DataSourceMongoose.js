@@ -73,14 +73,14 @@ exports.DataSource = DataSourceMongoose;
  * @param {GeneralCallback} callback the function to call when the state was retrieved or an
  *  error occurred.
  */
-function get(id_mac, callback) {
+function get(identity, callback) {
     var handle = this;
-    AxolotlState.findOne({'id_mac' : id_mac}, function(err, state){
+    AxolotlState.findOne({'dh_identity_key_recv' : identity}, function(err, state){
         if (err) {
             myutil.log('Error getting AxolotlState from Mongoose:', err);
             callback(err);
         } else if (!state) {
-            callback(new Error('state not found in db when looking for id_mac:' + id_mac));
+            callback(new Error('state not found in db when looking for id:' + identity));
         } else {
             //myutil.log("ERR", err , "+", "STATE", state, '+ TEST', test)
             handle.internal = state;
@@ -130,13 +130,11 @@ function save(callback) {
         myutil.log(msg);
         callback(new Error(msg));
     } else {
-        //myutil.debug("DataSource saving: ", this.internal.id_mac);
         this.internal.save(function (err, doc, numAffected) {
             if (err) {
                 myutil.log(err);
                 callback(err);
             } else {
-                //myutil.debug('DataSource save finished for ID:', doc.id_mac);
                 callback(null, doc, numAffected);
             }
         });
@@ -152,8 +150,8 @@ function save(callback) {
  * @param {PrekeyGetCallback} callback the function to call when the prekey was retrieved or
  *  an error occurred.
  */
-function pkget(id_mac, callback) {
-    Prekey.findOneAndRemove({ 'id_mac': id_mac }, 
+function pkget(identity, callback) {
+    Prekey.findOneAndRemove({ 'dh_identity_key_recv': identity }, 
             {'sort' : {'timestamp' : 1}}, function (err, doc) {
         if (err) {
             myutil.log(err);
@@ -175,9 +173,9 @@ function pkget(id_mac, callback) {
  * @param {PrekeyPutCallback} callback the function to call when the prekey was stored or the
  *  operation failed.
  */
-function pkput(id_mac, key_id, base_key, callback) {
+function pkput(identity, key_id, base_key, callback) {
     var pk = new Prekey();
-    pk.id_mac = id_mac;
+    pk.identity = identity;
     pk.key_id = key_id;
     pk.base_key = base_key;
     pk.save(function(err, doc, numAffected) {

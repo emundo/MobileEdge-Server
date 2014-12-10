@@ -21,7 +21,8 @@ var expect = require('chai').expect,
     token = require('../libs/token.js'),
     crypto = require('crypto'),
     cu = require('../libs/crypto_util.js'),
-    myutil = require('../libs/util.js');
+    myutil = require('../libs/util.js'),
+    sodium = require('sodium').api;
 
 /**
  * Tests for HMAC functionality.
@@ -38,10 +39,12 @@ describe('HMAC functionality', function(){
          */
         it('should equal crypto builtin hmac', function(){
             // generate a random key every time
-            var key = nacl.random_bytes(40);
+            var key = new Buffer (40);
+            sodium.randombytes(key);
             var attempt = cu.hmac(key, 'MobileEdge is a great thing'),
                 other = cu._hmac(key, 'MobileEdge is a great thing');
-            expect(nacl.to_hex(attempt)).to.equal(nacl.to_hex(other));
+            myutil.debug(attempt, other);
+            expect(sodium.memcmp(attempt,other,32)).to.equal(0);
         });
     });
 });
