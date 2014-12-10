@@ -316,7 +316,6 @@ function sendMessage(identity, msg, callback) {
         msgHead = Buffer.concat([msgHead.slice(16), nonce2], 
                     msgHead.length - 16 + nonce2.length);
         var ciphertext = {
-            'nonce' : nonce2.toString('base64'),
             'head'  : msgHead.toString('base64'),
             'body'  : msgBody.toString('base64')
                 //TODO mac!?
@@ -397,7 +396,7 @@ function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey,
 function try_skipped_header_and_message_keys(state, msg) {
     for (var i = 0; i < state.skipped_hk_mk.length; i++) {
         mu.debug("try_skipped: key:", state.skipped_hk_mk[i].hk);
-        var purportedHdr = decryptHeader(state.skipped_hk_mk[i].hk, msg.head, msg.nonce);
+        var purportedHdr = decryptHeader(state.skipped_hk_mk[i].hk, msg.head);
         if (purportedHdr instanceof Error) { // this skipped header key was not the right one
             continue;
         }
@@ -481,7 +480,7 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
  * @return {Error|Array} either an Error if decryption failed, or the Array object corresponding
  *  to the decrypted header.
  */
-function decryptHeader(key, ciphertext, nonce) {
+function decryptHeader(key, ciphertext) {
     //TODO: nonce in encrypted message
     var plainHdr;
     var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
@@ -675,7 +674,7 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
 function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
     //TODO: nonce in encrypted message
     mu.debug("handleWithoutKey: key:", state.next_header_key_recv);
-    var purportedHdr = decryptHeader(state.next_header_key_recv, ciphertext.head, ciphertext.nonce);
+    var purportedHdr = decryptHeader(state.next_header_key_recv, ciphertext.head);
     if (purportedHdr instanceof Error) {
         mu.log('Error: Failed to decrypt message header with next_header_key_recv.','\n\t', purportedHdr.message);
         callback(purportedHdr);
@@ -746,7 +745,7 @@ function recvMessage(identity, ciphertext, callback) {
         var purportedHdr;
         mu.debug("recvMessage: key:", state.header_key_recv);
         if (state.header_key_recv  // we have a key which we can decrypt received headers with
-            && !((purportedHdr = decryptHeader(state.header_key_recv, ciphertext.head, ciphertext.nonce)) instanceof Error)) {
+            && !((purportedHdr = decryptHeader(state.header_key_recv, ciphertext.head)) instanceof Error)) {
             handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingArea, callback);
         } else {
             if (state.ratchet_flag) { // we have not ratcheted yet so the state is inconsistent.
