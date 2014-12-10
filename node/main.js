@@ -92,11 +92,12 @@ var sslOptions = {
  * @param {Object} msg the cleartext identity request message
  * @param {module:main.ResponseCallback} callback the function to call when id generation is done
  */
-function handleIdentityRequest(msg, callback) {
-    token.create_id(function (id_token){
+function handleIdentityRequest(msg, callback) 
+{
+    token.create_id(function (id_token)
+    {
         if (id_token instanceof Error)
             callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_ID_CREATION_FAILURE") });
-            //callback({ 'statusCode' : 500, 'message' : 'Could not create ID.' });
         else
             callback({ 'statusCode' : 200, 'message' : id_token });
     });
@@ -110,14 +111,16 @@ function handleIdentityRequest(msg, callback) {
  * @param {Object} msg the id refresh request msg including the current id
  * @param {module:main.ResponseCallback} callback the function to call when id generation is done
  */
-function handleIdentityRefresh(msg, callback) {
+function handleIdentityRefresh(msg, callback) 
+{
     if (!msg.id_token)
         callback({ 'statusCode' : 400, 'message' : createErrorObject('ERROR_CODE_REFRESHING_ID_NOT_GIVEN') });
-    else {
-        token.refresh_id(msg.id_token, function(new_id) {
+    else 
+    {
+        token.refresh_id(msg.id_token, function(new_id) 
+        {
             if (new_id instanceof Error)
                 callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_ID_REFRESHING_FAILURE") });
-                //callback({ 'statusCode' : 500, 'message' : 'Could not refresh ID.' });
             else 
                 callback({ 'statusCode' : 200, 'message' : new_id });
         });
@@ -133,7 +136,8 @@ function handleIdentityRefresh(msg, callback) {
  * @param {module:main.ResponseCallback} callback the function to call when the key agreement finishes
  *  locally. 
  */
-function handleKeyExchange(msg, callback) {
+function handleKeyExchange(msg, callback) 
+{
     if (!msg.keys || !msg.keys.id || !msg.keys.eph0)
     {
         callback({ 
@@ -147,13 +151,17 @@ function handleKeyExchange(msg, callback) {
             'id'    : msg.keys.id,
             'eph0'  : msg.keys.eph0
         };
-        axolotl.keyAgreement(theirKeyExchange, function(err, ourKeyExchange) {
-            if (err) {
+        axolotl.keyAgreement(theirKeyExchange, function(err, ourKeyExchange) 
+        {
+            if (err) 
+            {
                 callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_KEYEXCHANGE_FAILURE") });
-            } else {
+            } 
+            else
+            {
                 callback({ 'statusCode' : 200, 'message' : ourKeyExchange });
             }
-        }, true);
+        });
     }
 }
 
@@ -168,7 +176,8 @@ function handleKeyExchange(msg, callback) {
  * @param {module:main.ResponseCallback} callback - the function to call when the 
  *  message has been handled. This is usually just passed on to the next handler.
  */
-function handleEncrypted(msg, callback) {
+function handleEncrypted(msg, callback) 
+{
     function receive (from)
     {
         axolotl.recvMessage(from, msg, function(err, plaintext, state)
@@ -178,21 +187,29 @@ function handleEncrypted(msg, callback) {
                 myutil.debug("error decrypting:", err)
                 callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_DECRYPTION_FAILURE") });
             }
-            else {
-                try { // TODO: use domains instead of try/catch!
+            else 
+            {
+                try 
+                { // TODO: use domains instead of try/catch!
                     decrypted_msg = JSON.parse(plaintext);
-                } catch (err) {
+                } 
+                catch (err) 
+                {
                     callback({ 
                         'statusCode' : 400, // 400: Bad Request
                         'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_FORMAT") 
                     });
                 }
+
                 if (!decrypted_msg.type)
+                {
                     callback({ 
                         'statusCode' : 400, // 400: Bad Request
                         'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_TYPE") 
                     });
-                else {
+                }
+                else
+                {
                     decrypted_msg.from = from;
                     if ('PKPUT' === decrypted_msg.type)
                         handlePrekeyPush(decrypted_msg, callback);
@@ -213,6 +230,7 @@ function handleEncrypted(msg, callback) {
             }
             else
             {
+                decrypted_msg.from = from;
                 receive(from);
             }
         });
@@ -230,28 +248,56 @@ function handleEncrypted(msg, callback) {
  * @param {module:main.ResponseCallback} callback the function to call when prekey storage is done or
  *  an error occurred.
  */
-function handlePrekeyPush(msg, callback) {
+function handlePrekeyPush(msg, callback) 
+{
     // Key id is random nonce, so 24 byte. * 2 as it is given as hex string
     if (!msg.pk || !msg.pk.kid || !msg.pk.base)
-        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_NONEXISTENT_PREKEY"), 'toBeEncrypted' : true });
-        //callback({ 'statusCode' : 400, 'message' : 'No prekey specified.', 'toBeEncrypted' : true });
-    else {
+        callback({ 
+            'statusCode' : 400, 
+            'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_NONEXISTENT_PREKEY"), 
+            'toBeEncrypted' : true,
+            'to' : msg.from
+        });
+    else 
+    {
         var re_kid = /[0-9a-f]{48}/;
         var re_base = /[0-9a-f]{64}/;
         if (!re_kid.test(msg.pk.kid))
-            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_INVALID_PREKEY_ID"), 'toBeEncrypted' : true });
-            //callback({ 'statusCode' : 400, 'message' : 'Invalid key id.', 'toBeEncrypted' : true });
+            callback({ 
+                'statusCode' : 400, 
+                'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_INVALID_PREKEY_ID"), 
+                'toBeEncrypted' : true,
+                'to' : msg.from
+            });
         else if (!re_base.test(msg.pk.base))
-            callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_INVALID_PREKEY_BASE"), 'toBeEncrypted' : true });
-            //callback({ 'statusCode' : 400, 'message' : 'Invalid base key.', 'toBeEncrypted' : true });
-        else {
-            prekey.put(msg.from, msg.pk.kid, msg.pk.base, function(err){
-                if (err) {
+            callback({ 
+                'statusCode' : 400, 
+                'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_INVALID_PREKEY_BASE"), 
+                'toBeEncrypted' : true,
+                'to' : msg.from
+            });
+        else 
+        {
+            prekey.put(msg.from, msg.pk.kid, msg.pk.base, function(err)
+            {
+                if (err) 
+                {
                     myutil.debug("Err in handler not null, return 500");
-                    callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_FAILURE"), 'toBeEncrypted' : true });
-                    //callback({ 'statusCode' : 500, 'message' : 'Could not store prekey.', 'toBeEncrypted' : true });
-                } else {
-                    callback({ 'statusCode' : 200, 'message' : 'OK', 'toBeEncrypted' : true });
+                    callback({ 
+                        'statusCode' : 500, 
+                        'message' : createErrorObject("ERROR_CODE_PREKEY_PUSH_FAILURE"), 
+                        'toBeEncrypted' : true,
+                        'to' : msg.from
+                    });
+                } 
+                else
+                {
+                    callback({
+                        'statusCode' : 200,
+                        'message' : 'OK',
+                        'toBeEncrypted' : true,
+                        'to' : msg.from
+                    });
                 }
             });
         }
@@ -267,29 +313,42 @@ function handlePrekeyPush(msg, callback) {
  * @param {module:main.ResponseCallback} callback the function to call with the client's
  * prekey or an error.
  */
-function handlePrekeyRequest(msg, callback) {
-    if (!msg.pkreq || !msg.pkreq.id_token) {
-        callback({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_PREKEY_GET_ID_NOT_GIVEN"), 'toBeEncrypted' : true });
-        //callback({ 'statusCode' : 400, 'message' : 'No identity specified.', 'toBeEncrypted' : true });
-    } else {
-        token.verify_id(msg.pkreq.id_token, function(result) {
-            if (result !== token.VALID) {
-                callback({ 'statusCode' : 404, 'message' : createErrorObject("ERROR_CODE_PREKEY_GET_ID_INVALID"), 'toBeEncrypted' : true });
-                //callback({ 'statusCode' : 404, 'message' : 'Invalid identity. No prekey present.', 'toBeEncrypted' : true });
-            } else {
-                prekey.get(msg.pkreq.id_token.mac, function(err, doc) {
-                    if (err || !doc) {
-                        callback({ 'statusCode' : 404, 'message' : createErrorObject("ERROR_CODE_PREKEY_GET_NOT_FOUND"), 'toBeEncrypted' : true });
-                        //callback({ 'statusCode' : 404, 'message' : 'Could not find prekey.', 'toBeEncrypted' : true });
-                    } else {
-                        callback({ 
-                                'statusCode' : 200, 
-                                'message' : { 'type' : 'PKRET', 'pk' : { 'kid' : doc.key_id , 'base' : doc.base_key } }, 
-                                'toBeEncrypted' : true
-                        });
-                    }
-                });
-            }
+function handlePrekeyRequest(msg, callback) 
+{
+    if (!msg.pkreq || !msg.pkreq.id) 
+    {
+        callback({ 
+            'statusCode' : 400, 
+            'message' : createErrorObject("ERROR_CODE_PREKEY_GET_ID_NOT_GIVEN"), 
+            'toBeEncrypted' : true,
+            'to' : msg.from
+        });
+    } 
+    else 
+    {
+        token.verify_id(msg.pkreq.id_token, function(result) 
+        {
+            prekey.get(msg.pkreq.id_token.mac, function(err, doc) 
+            {
+                if (err || !doc) 
+                {
+                    callback({ 
+                        'statusCode' : 404, 
+                        'message' : createErrorObject("ERROR_CODE_PREKEY_GET_NOT_FOUND"), 
+                        'toBeEncrypted' : true ,
+                        'to' : msg.from
+                    });
+                } 
+                else 
+                {
+                    callback({ 
+                        'statusCode' : 200, 
+                        'message' : { 'type' : 'PKHOUT', 'pk' : { 'kid' : doc.key_id , 'base' : doc.base_key } }, 
+                        'toBeEncrypted' : true,
+                        'to' : msg.from
+                    });
+                }
+            });
         });
     }
 }
@@ -314,26 +373,32 @@ function handlePrekeyRequest(msg, callback) {
  * @param {module:main.MobileEdgeResponse} response - the actual message to
  *  be sent to the client
  */
-function respond(context, response) {
+function respond(context, response) 
+{
     myutil.debug("Status code:", response.statusCode);
     myutil.debug('Sending message:', response.message);
     var text = JSON.stringify(response.message);
     myutil.debug('Sending message text:', text);
-    if (response.toBeEncrypted) {
+    if (response.toBeEncrypted) 
+    {
         myutil.debug('Encrypting response.');
-        axolotl.sendMessage(context.from, text, function(err, ciphertext, state) {
-            if (err) {
+        axolotl.sendMessage(response.to, text, function(err, ciphertext, state) {
+            if (err) 
+            {
                 context.response.writeHead(500, {'Content-Type' : 'application/json'});    // 500: internal server error
                 context.response.write(createErrorObject("ERROR_CODE_ENCRYPTION_FAILURE"));
-                //context.response.write('Encryption impossible.')
-            } else {
+            } 
+            else 
+            {
                 context.response.writeHead(response.statusCode, {'Content-Type' : 'application/json'});    // 200: OK
                 myutil.debug("YAY:", ciphertext);
                 context.response.write(JSON.stringify(ciphertext)); // send encrypted
             }
             context.response.end();
-        }, true);
-    } else {
+        });
+    }
+    else 
+    {
         context.response.writeHead(response.statusCode, {'Content-Type' : 'application/json'});    // 200: OK
         context.response.write(text);       // Send unencrypted
         context.response.end();
@@ -349,20 +414,24 @@ function respond(context, response) {
  * @param {module:main.Context} context - the Node.js request and response objects
  * @param {String} data - the data received from the client via the request
  */
-function dispatch(context, data) {
-    function respond_cb(response) {
+function dispatch(context, data) 
+{
+    function respond_cb(response) 
+    {
         respond(context, response);
     }
-    try {
+    try 
+    {
         var msg = JSON.parse(data);
-    } catch (err) { // not a valid message
+    } 
+    catch (err) 
+    { // not a valid message
         respond_cb({ 'statusCode' : 400, 'message' : createErrorObject("ERROR_CODE_INVALID_FORMAT") });
         //respond_cb({ 'statusCode' : 400, 'message' : 'Request did not contain valid JSON.' });
         return;
     }
-    if (msg && msg.id_token)
-        context.from = msg.id_token.mac;
-    switch (msg.type) {
+    switch (msg.type) 
+    {
     case 'IDREQ':
         handleIdentityRequest(msg, respond_cb);
         break;
@@ -408,18 +477,22 @@ function dispatch(context, data) {
  * which specify the prekey to be pushed or, the id of the user whose
  * prekey is requested.
  */
-var secureServer = https.createServer(sslOptions, function(request, response) {
 //var http = require('http');
 //var insecureServer = http.createServer(function(request, response) {
+var secureServer = https.createServer(sslOptions, function(request, response) 
+{
     var body = '';
-    request.on('data', function (chunk) {
+    request.on('data', function (chunk) 
+    {
         body += chunk;
     });
-    request.on('end', function () {
+    request.on('end', function () 
+    {
         dispatch({ 'response': response }, body);
         myutil.debug('received request from client', request.headers['user-agent'],
             'at', request.connection.remoteAddress);
     });
-}).listen('8888', function(){
+}).listen('8888', function()
+{
     myutil.log("Secure server listening on port 8888");
 });
