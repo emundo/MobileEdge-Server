@@ -21,7 +21,7 @@
  * Require some important Node modules.
  */
 var https = require('https'),
-    nacl_factory = require('js-nacl'),
+    //nacl_factory = require('js-nacl'),
     util = require('util'),
     fs = require('fs'),
     mongoose = require('mongoose'),
@@ -35,7 +35,7 @@ global.db_conn = mongoose.connect('mongodb://localhost/keys');
 /**
  * Create a global NaCl instance.
  */
-global.nacl = nacl_factory.instantiate();
+//global.nacl = nacl_factory.instantiate();
 
 /*
  * Require our own libraries.
