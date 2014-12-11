@@ -253,8 +253,13 @@ function handleProxy(msg, callback)
 {
     const HOST = '127.0.0.1';
     const PORT = 6969;
-    const TERMINATION_SEQUENCE = new Buffer("\r\n\r\n\r\ngagagag"); 
+    const TERMINATION_SEQUENCE = new Buffer("\r\n\r\n"); 
     var responseContent = "";
+    var response = {
+        'statusCode' : 200, 
+        'toBeEncrypted' : true,
+        'to' : msg.from
+    };
 
     var client = new net.Socket();
 
@@ -271,12 +276,8 @@ function handleProxy(msg, callback)
         if (data.slice(-TERMINATION_SEQUENCE.length).compare(TERMINATION_SEQUENCE) == 0)
         { // Server's response is terminated.
             client.end()
-            callback({ 
-                'statusCode' : 200, 
-                'message' : responseContent,
-                'toBeEncrypted' : true,
-                'to' : msg.from
-            });
+            response.message = responseContent;
+            callback(response);
         }
     });
 
@@ -284,12 +285,8 @@ function handleProxy(msg, callback)
     { // server is closing the connection. Doing so, too.
         myutil.debug('Server is closing the connection. Doing so, too.');
         client.end();
-        callback({ 
-            'statusCode' : 200, 
-            'message' : responseContent,
-            'toBeEncrypted' : true,
-            'to' : msg.from
-        });
+        response.message = responseContent;
+        callback(response);
     });
 
     client.on('timeout', function() {
@@ -299,12 +296,8 @@ function handleProxy(msg, callback)
 
     client.on('close', function() {
         console.log('Connection closed.');
-        callback({ 
-            'statusCode' : 200, 
-            'message' : responseContent,
-            'toBeEncrypted' : true,
-            'to' : msg.from
-        });
+        response.message = responseContent;
+        callback(response);
     });
 }
 
