@@ -434,7 +434,7 @@ function refreshID(ID_token, callback)
 }
 
 
-describe('requestID', function()
+describe.skip('requestID', function()
 {
   describe('#requestID()', function()
   {
@@ -452,7 +452,7 @@ describe('requestID', function()
   });
 });
 
-describe('exchangeKeys', function () 
+describe.skip('exchangeKeys', function () 
 {
     describe('#exchangeKeys()', function()
     {
@@ -474,7 +474,7 @@ describe('exchangeKeys', function ()
     });   
 });
 
-describe('updateStateAlice', function () 
+describe.skip('updateStateAlice', function () 
 {
     describe('#updateStateAlice()', function()
     {
@@ -496,7 +496,7 @@ describe('updateStateAlice', function ()
 });
 
 
-describe('buildPKPUT', function () 
+describe.skip('buildPKPUT', function () 
 {
     describe('#buildPKPUT()', function()
     {
@@ -522,7 +522,7 @@ describe('buildPKPUT', function ()
     });   
 });
 
-describe('sendMsg', function () 
+describe.skip('sendMsg', function () 
 {
     describe('#sendMsg()', function()
     {
@@ -551,7 +551,7 @@ describe('sendMsg', function ()
     });   
 });
 
-describe('decryptIncoming', function () 
+describe.skip('decryptIncoming', function () 
 {
     describe('#decryptIncoming()', function()
     {
@@ -581,7 +581,7 @@ describe('decryptIncoming', function ()
     });   
 });
 
-describe('buildPKREQ', function () 
+describe.skip('buildPKREQ', function () 
 {
     describe('#buildPKREQ()', function()
     {
@@ -608,7 +608,7 @@ describe('buildPKREQ', function ()
     });   
 });
 
-describe('sendPKREQ', function () 
+describe.skip('sendPKREQ', function () 
 {
     describe('#decryptIncoming()', function()
     {
@@ -664,7 +664,7 @@ describe('sendPKREQ', function ()
 
 
 
-describe('refreshID', function()
+describe.skip('refreshID', function()
 {
   describe('#refreshID()', function()
   {
