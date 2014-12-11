@@ -22,6 +22,7 @@
  */
 var https = require('https'),
     //nacl_factory = require('js-nacl'),
+    net = require('net'),
     util = require('util'),
     fs = require('fs'),
     mongoose = require('mongoose'),
@@ -40,7 +41,7 @@ global.db_conn = mongoose.connect('mongodb://localhost/keys');
 /*
  * Require our own libraries.
  */
-var token = require("./libs/token.js"),
+var //token = require("./libs/token.js"),
     myutil = require("./libs/util.js"),
     axolotl = require("./libs/axolotl.js"),
     prekey = require('./libs/prekey.js'),
@@ -214,9 +215,17 @@ function handleEncrypted(msg, callback)
                 {
                     decrypted_msg.from = from;
                     if ('PKPUSH' === decrypted_msg.type)
+                    {
                         handlePrekeyPush(decrypted_msg, callback);
+                    }
                     else if ('PKREQ' === decrypted_msg.type)
+                    {
                         handlePrekeyRequest(decrypted_msg, callback);
+                    }
+                    else if ('PROXY' === decrypted_msg.type)
+                    {
+                        handleProxy(decrypted_msg, callback);
+                    }
                     // TODO: handle other message types?
                 }
             }
@@ -238,6 +247,65 @@ function handleEncrypted(msg, callback)
         });
     }
     receive(msg.from);
+}
+
+function handleProxy(msg, callback)
+{
+    const HOST = '127.0.0.1';
+    const PORT = 6969;
+    const TERMINATION_SEQUENCE = new Buffer("\r\n\r\n"); 
+    var responseContent = "";
+
+    var client = new net.Socket();
+
+
+    client.connect(PORT, HOST, function() {
+        myutil.debug('CONNECTED TO: ' + HOST + ':' + PORT);
+        client.write(msg.payload);
+        client.end();
+    });
+
+    client.on('data', function(data) {
+        myutil.debug('DATA: (', typeof(data), ') ' + data);
+        responseContent += data; // TODO: replace string concatenation here...
+        if (data.slice(-TERMINATION_SEQUENCE.length).compare(TERMINATION_SEQUENCE) == 0)
+        { // Server's response is terminated.
+            client.end()
+            callback({ 
+                'statusCode' : 200, 
+                'message' : responseContent,
+                'toBeEncrypted' : true,
+                'to' : msg.from
+            });
+        }
+    });
+
+    client.on('end', function()
+    { // server is closing the connection. Doing so, too.
+        myutil.debug('Server is closing the connection. Doing so, too.');
+        client.end();
+        callback({ 
+            'statusCode' : 200, 
+            'message' : responseContent,
+            'toBeEncrypted' : true,
+            'to' : msg.from
+        });
+    });
+
+    client.on('timeout', function() {
+        myutil.debug('Socket was idle. Closing.');
+        client.end(); // destroy?
+    });
+
+    client.on('close', function() {
+        console.log('Connection closed.');
+        callback({ 
+            'statusCode' : 200, 
+            'message' : responseContent,
+            'toBeEncrypted' : true,
+            'to' : msg.from
+        });
+    });
 }
 
 /**
@@ -414,7 +482,7 @@ function respond(context, response)
     else 
     {
         context.response.writeHead(response.statusCode, {'Content-Type' : 'application/json'});    // 200: OK
-        context.response.write(text);       // Send unencrypted
+        context.response.write(text); // Send unencrypted
         context.response.end();
     }
 }
@@ -498,9 +566,9 @@ var secureServer = https.createServer(sslOptions, function(request, response)
     });
     request.on('end', function () 
     {
-        dispatch({ 'response': response }, body);
-        myutil.debug('received request from client', request.headers['user-agent'],
+        myutil.debug('received request from client', request.headers['user-agent'], '('+body+')',
             'at', request.connection.remoteAddress);
+        dispatch({ 'response': response }, body);
     });
 }).listen('8888', function()
 {
