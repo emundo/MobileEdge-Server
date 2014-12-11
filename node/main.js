@@ -21,7 +21,6 @@
  * Require some important Node modules.
  */
 var https = require('https'),
-    //nacl_factory = require('js-nacl'),
     net = require('net'),
     util = require('util'),
     fs = require('fs'),
@@ -32,11 +31,6 @@ var DataSource = ds.DataSource;
  * Create a database connection to use globally throughout the program.
  */
 global.db_conn = mongoose.connect('mongodb://localhost/keys');
-
-/**
- * Create a global NaCl instance.
- */
-//global.nacl = nacl_factory.instantiate();
 
 /*
  * Require our own libraries.
