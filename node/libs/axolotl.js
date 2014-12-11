@@ -80,7 +80,6 @@ var generateIDKey = function() {
  */
 var deriveKeysBob = exports.deriveKeysBob =
 function deriveKeysBob(mine, their, callback) {
-    mu.debug('deriveKeysBob', mine.id, their.eph0);
     var part1 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.id, 'base64')),
         part2 = sodium.crypto_scalarmult(mine.id.secretKey, new Buffer(their.eph0, 'base64')),
         part3 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.eph0, 'base64'));
@@ -96,7 +95,6 @@ function deriveKeysBob(mine, their, callback) {
  */
 var deriveKeysAlice = exports.deriveKeysAlice =
 function deriveKeysAlice(mine, their, callback) {
-    mu.debug('deriveKeysAlice', mine.id, their.id);
     var part1 = sodium.crypto_scalarmult(mine.id.secretKey, new Buffer(their.eph0, 'base64')),
         part2 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.id, 'base64')),
         part3 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.eph0, 'base64'));
@@ -123,6 +121,7 @@ function deriveKeys(part1, part2, part3, callback) {
             'nhk1'  : key.slice(3 * key.length / 5, 4 * key.length / 5),
             'ck'  : key.slice(4 * key.length / 5)
         };
+        mu.debug('deriveKeys:', res);
         callback(res);
     });
 }
