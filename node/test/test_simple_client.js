@@ -1,4 +1,5 @@
 var https = require('https'),
+    main = require('../main.js'),
     expect = require('chai').expect,
     sodium = require('sodium').api,
     util = require('util'),
@@ -11,10 +12,6 @@ var https = require('https'),
 
 var AxolotlState = mongoose.model('AxolotlState');
 var DataSource = ds.DataSource;
-/**
- * Create a database connection to use globally throughout the program.
- */
-global.db_conn = mongoose.connect('mongodb://localhost/keys');
 
 var headers = {
     'user-agent': 'test-client',
