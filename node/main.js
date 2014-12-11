@@ -211,7 +211,7 @@ function handleEncrypted(msg, callback)
                 else
                 {
                     decrypted_msg.from = from;
-                    if ('PKPUT' === decrypted_msg.type)
+                    if ('PKPUSH' === decrypted_msg.type)
                         handlePrekeyPush(decrypted_msg, callback);
                     else if ('PKREQ' === decrypted_msg.type)
                         handlePrekeyRequest(decrypted_msg, callback);
@@ -250,7 +250,7 @@ function handleEncrypted(msg, callback)
  */
 function handlePrekeyPush(msg, callback) 
 {
-    // Key id is random nonce, so 24 byte. * 2 as it is given as hex string
+    // Key is 32 byte. It is given as Base64 string.
     if (!msg.pk || !msg.pk.kid || !msg.pk.base)
         callback({ 
             'statusCode' : 400, 
@@ -260,8 +260,8 @@ function handlePrekeyPush(msg, callback)
         });
     else 
     {
-        var re_kid = /[0-9a-f]{48}/;
-        var re_base = /[0-9a-f]{64}/;
+        var re_kid = /^[a-zA-Z0-9\+\/]{11}=$/;  // base64 string of length 12 (8 bytes actually)
+        var re_base = /^[a-zA-Z0-9\+\/]{43}=$/; // 32 bytes -> 43 chars base64 and =
         if (!re_kid.test(msg.pk.kid))
             callback({ 
                 'statusCode' : 400, 
