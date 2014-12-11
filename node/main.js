@@ -253,7 +253,7 @@ function handleProxy(msg, callback)
 {
     const HOST = '127.0.0.1';
     const PORT = 6969;
-    const TERMINATION_SEQUENCE = new Buffer("\r\n\r\n"); 
+    const TERMINATION_SEQUENCE = new Buffer("\r\n\r\n\r\ngagagag"); 
     var responseContent = "";
 
     var client = new net.Socket();

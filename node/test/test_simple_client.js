@@ -118,10 +118,14 @@ describe('Simple test client', function()
 {
     describe('Key exchange and message', function()
     {
+        var aliceParams;
+        var bobID;
         it('should encrypt and decrypt messages from the backend', function(done)
         {
-            exchangeKeys(function(bobID, aliceParams) 
+            exchangeKeys(function(remoteID, localParams) 
             {
+                aliceParams = localParams;
+                bobID = remoteID;
                 var jMessage = JSON.stringify(message);
                 myutil.debug('Encrypting message:', jMessage, 'for', bobID );
                 axolotl.sendMessage(bobID, jMessage, function(err, ciphertext, state) 
@@ -143,17 +147,12 @@ describe('Simple test client', function()
                         {
                             result = JSON.parse(result);
                             myutil.debug('Received answer:', result);
-                            AxolotlState.remove({ 
-                                dh_identity_key_recv : new Buffer(aliceParams.id.publicKey, 'base64') 
-                            }, function()
+                            axolotl.recvMessage(bobID, result, function(err, plaintext)
                             {
+                                expect(err).to.not.exist;
+                                myutil.debug('Decrypted message:', plaintext);
+                                done();
                             });
-                            AxolotlState.remove({ 
-                                dh_identity_key_recv : new Buffer(bobID, 'base64') 
-                            }, function()
-                            {
-                            });
-                            done();
                         });
                     });
                     req.on('error', function(e) 
@@ -165,6 +164,20 @@ describe('Simple test client', function()
                     req.end();
                 });
             });
+        });
+        after (function (done){
+            AxolotlState.remove({ 
+                    dh_identity_key_recv : new Buffer(aliceParams.id.publicKey, 'base64') 
+                }, 
+                function()
+                {
+                });
+            AxolotlState.remove({ 
+                    dh_identity_key_recv : new Buffer(bobID, 'base64') 
+                }, function()
+                {
+                });
+            done();
         });
     });
 });
