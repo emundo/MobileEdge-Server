@@ -36,6 +36,7 @@ global.db_conn = mongoose.connect('mongodb://localhost/keys');
  * Require our own libraries.
  */
 var //token = require("./libs/token.js"),
+    proxyConfig = require('./config/proxy.conf.js').proxyConfiguration,
     myutil = require("./libs/util.js"),
     axolotl = require("./libs/axolotl.js"),
     prekey = require('./libs/prekey.js'),
@@ -245,9 +246,9 @@ function handleEncrypted(msg, callback)
 
 function handleProxy(msg, callback)
 {
-    const HOST = '127.0.0.1';
-    const PORT = 6969;
-    const TERMINATION_SEQUENCE = new Buffer("\r\n\r\n"); 
+    const HOST = proxyConfig.host;
+    const PORT = proxyConfig.port;
+    const TERMINATION_SEQUENCE = proxyConfig.terminationSeq;
     var responseContent = "";
     var response = {
         'statusCode' : 200, 
