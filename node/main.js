@@ -271,7 +271,7 @@ function handleProxy(msg, callback)
         if (data.slice(-TERMINATION_SEQUENCE.length).compare(TERMINATION_SEQUENCE) == 0)
         { // Server's response is terminated.
             client.end()
-            response.message = { 'payload' : responseContent};
+            response.message = { 'type' : 'PROXY', 'payload' : responseContent };
             callback(response);
         }
     });
@@ -280,7 +280,7 @@ function handleProxy(msg, callback)
     { // server is closing the connection. Doing so, too.
         myutil.debug('Server is closing the connection. Doing so, too.');
         client.end();
-        response.message = { 'payload' : responseContent};
+        response.message = { 'type' : 'PROXY', 'payload' : responseContent };
         callback(response);
     });
 
@@ -291,7 +291,7 @@ function handleProxy(msg, callback)
 
     client.on('close', function() {
         console.log('Connection closed.');
-        response.message = { 'payload' : responseContent};
+        response.message = { 'type' : 'PROXY', 'payload' : responseContent };
         callback(response);
     });
 }
@@ -462,6 +462,7 @@ function respond(context, response)
             {
                 context.response.writeHead(response.statusCode, {'Content-Type' : 'application/json'});    // 200: OK
                 myutil.debug("YAY:", ciphertext);
+                ciphertext.type = "CRYPT";
                 context.response.write(JSON.stringify(ciphertext)); // send encrypted
             }
             context.response.end();
