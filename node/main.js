@@ -59,6 +59,8 @@ var sslOptions = {
 };
 
 
+const LAST_RESORT_KEY_ID = (new Buffer(8).fill(0xff)).toString('base64');
+
 
 /**
  * @callback GeneralCallback
@@ -330,11 +332,26 @@ function handlePrekeyRequest(msg, callback)
         {
             if (err || !doc) 
             {
-                callback({ 
-                    'statusCode' : 404, 
-                    'message' : createErrorObject("ERROR_CODE_PREKEY_GET_NOT_FOUND"), 
-                    'toBeEncrypted' : true ,
-                    'to' : msg.from
+                prekey.get(LAST_RESORT_KEY_ID, function(err, doc) 
+                { // Check if we have a LastResortKey
+                    if (err || !doc) 
+                    { // Nothing we can do here.
+                        callback({ 
+                            'statusCode' : 404, 
+                            'message' : createErrorObject("ERROR_CODE_PREKEY_GET_NOT_FOUND"), 
+                            'toBeEncrypted' : true ,
+                            'to' : msg.from
+                        });
+                    } 
+                    else 
+                    { // Hand out LastResortKey:
+                        callback({ 
+                            'statusCode' : 200, 
+                            'message' : { 'type' : 'PKHOUT', 'pk' : { 'kid' : doc.key_id , 'base' : doc.base_key } }, 
+                            'toBeEncrypted' : true,
+                            'to' : msg.from
+                        });
+                    }
                 });
             } 
             else 
