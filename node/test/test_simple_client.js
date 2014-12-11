@@ -148,6 +148,7 @@ describe('Simple test client', function()
                             {
                                 expect(err).to.not.exist;
                                 myutil.debug('Decrypted message:', plaintext);
+                                expect(JSON.parse(plaintext).payload).to.equal('You said "Hallo Server!"')
                                 done();
                             });
                         });
