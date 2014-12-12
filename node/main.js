@@ -28,10 +28,6 @@ var https = require('https'),
     mongoose = require('mongoose'),
     ds = require('./models/DataSourceMongoose.js');
 var DataSource = ds.DataSource;
-/**
- * Create a database connection to use globally throughout the program.
- */
-global.db_conn = mongoose.connect('mongodb://localhost/keys');
 
 /*
  * Require our own libraries.
@@ -39,10 +35,16 @@ global.db_conn = mongoose.connect('mongodb://localhost/keys');
 var //token = require("./libs/token.js"),
     proxyConfig = require('./config/proxy.conf.js').proxyConfiguration,
     mainConfig = require('./config/main.conf.js').mainConfiguration,
+    dbConfig = require('./config/db.conf.js').dbConfiguration,
     myutil = require("./libs/util.js"),
     axolotl = require("./libs/axolotl.js"),
     prekey = require('./libs/prekey.js'),
     errorLib = require('./libs/error.js');
+
+/**
+ * Create a database connection to use globally throughout the program.
+ */
+global.db_conn = mongoose.connect('mongodb://'+dbConfig.host + '/' + dbConfig.dbName);
 
 var createErrorObject = errorLib.createErrorObject;
 /**
