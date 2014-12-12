@@ -32,8 +32,7 @@ var DataSource = ds.DataSource;
 /*
  * Require our own libraries.
  */
-var //token = require("./libs/token.js"),
-    proxyConfig = require('./config/proxy.conf.js').proxyConfiguration,
+var proxyConfig = require('./config/proxy.conf.js').proxyConfiguration,
     mainConfig = require('./config/main.conf.js').mainConfiguration,
     dbConfig = require('./config/db.conf.js').dbConfiguration,
     myutil = require("./libs/util.js"),
@@ -86,48 +85,6 @@ const LAST_RESORT_KEY_ID = (new Buffer(8).fill(0xff)).toString('base64');
  *  have no AxolotlState).
  */
 
-/**
- * @description Handle an identity request from a client.
- * An id token will be generated and passed to a callback which should
- * send the appropriate answer to the client.
- *
- * @param {Object} msg the cleartext identity request message
- * @param {module:main.ResponseCallback} callback the function to call when id generation is done
- */
-function handleIdentityRequest(msg, callback) 
-{
-    token.create_id(function (id_token)
-    {
-        if (id_token instanceof Error)
-            callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_ID_CREATION_FAILURE") });
-        else
-            callback({ 'statusCode' : 200, 'message' : id_token });
-    });
-}
-
-/**
- * @description Handle an identity refresh request from a client
- * An id token will be generated that includes the current id of the client
- * for later reference. Calls a callback function with the result or an error.
- *
- * @param {Object} msg the id refresh request msg including the current id
- * @param {module:main.ResponseCallback} callback the function to call when id generation is done
- */
-function handleIdentityRefresh(msg, callback) 
-{
-    if (!msg.id_token)
-        callback({ 'statusCode' : 400, 'message' : createErrorObject('ERROR_CODE_REFRESHING_ID_NOT_GIVEN') });
-    else 
-    {
-        token.refresh_id(msg.id_token, function(new_id) 
-        {
-            if (new_id instanceof Error)
-                callback({ 'statusCode' : 500, 'message' : createErrorObject("ERROR_CODE_ID_REFRESHING_FAILURE") });
-            else 
-                callback({ 'statusCode' : 200, 'message' : new_id });
-        });
-    }
-}
 
 /**
  * @description Handle a key exchange message from a client.
