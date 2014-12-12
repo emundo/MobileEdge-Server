@@ -14,6 +14,7 @@
 /**
  * @module main
  * @description Main file of the application. Server is started here.
+ *  Provides version 0.1 of the API.
  * @author Raphael Arias <raphael.arias@e-mundo.de>
  */
 
