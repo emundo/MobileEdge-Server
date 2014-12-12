@@ -65,4 +65,5 @@ There is quite a few things which need to be done at some point:
   Prekey to the server, PUT is used for key exchange, etc. (which method
   to use for encrypted messages to the backend? GET?)
 * Take care of checking signatures on Prekeys, if we deem that necessary.
-
+* Explore the possibility of more efficient socket usage (currently,  
+  every request from a client opens a TCP socket to the actual backend...)
