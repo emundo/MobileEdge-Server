@@ -38,6 +38,7 @@ global.db_conn = mongoose.connect('mongodb://localhost/keys');
  */
 var //token = require("./libs/token.js"),
     proxyConfig = require('./config/proxy.conf.js').proxyConfiguration,
+    mainConfig = require('./config/main.conf.js').mainConfiguration,
     myutil = require("./libs/util.js"),
     axolotl = require("./libs/axolotl.js"),
     prekey = require('./libs/prekey.js'),
@@ -48,9 +49,9 @@ var createErrorObject = errorLib.createErrorObject;
  * The SSL certificates and keys need to be loaded.
  */
 var sslOptions = {
-  key: fs.readFileSync('./ssl/server.key'),
-  cert: fs.readFileSync('./ssl/server.crt'),
-  ca: fs.readFileSync('./ssl/ca.crt'),
+  key: fs.readFileSync(mainConfig.serverKey),
+  cert: fs.readFileSync(mainConfig.serverCertificate),
+  ca: fs.readFileSync(mainConfig.CACertificate),
 //  requestCert: true,
   rejectUnauthorized: false
 };
@@ -560,7 +561,7 @@ var secureServer = https.createServer(sslOptions, function(request, response)
             'at', request.connection.remoteAddress);
         dispatch({ 'response': response }, body);
     });
-}).listen('8888', function()
+}).listen(mainConfig.port, mainConfig.host, function()
 {
     myutil.log("Secure server listening on port 8888");
 });
