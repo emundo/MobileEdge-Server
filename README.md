@@ -57,6 +57,8 @@ APT using `apt-key add mongodb-gpgkey`).
 There is quite a few things which need to be done at some point:
 * Thorough code cleanup, extracting some of the stuff in main into  
   separate modules.
+* more extensive (unit) testing. Currently, mostly integration tests  
+  are done.
 * Put some thought into the obvious security implications when storing  
   keys using JavaScript and MongoDB. Securely erase memory that was used  
   for key storage and delete old Axolotl states from the database.
