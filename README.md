@@ -60,8 +60,7 @@ There is quite a few things which need to be done at some point:
 * Put some thought into the obvious security implications when storing  
   keys using JavaScript and MongoDB. Securely erase memory that was used  
   for key storage and delete old Axolotl states from the database.
-* Extract database configuration into a separate DB config file  
-  and abstract more from the actual DB being used (within the code)
+* Abstract more from the actual DB being used (within the code)
 * Make the API a shiny RESTful API where POST posts a  
   Prekey to the server, PUT is used for key exchange, etc. (which method
   to use for encrypted messages to the backend? GET?)
