@@ -68,7 +68,8 @@ exports.INVALID = INVALID;
  * @param {Function} callback - callback function to be called when token was generated.
  *      It takes one argument, the token that was created.
  */
-function _create_id(data, callback) {
+function _create_id(data, callback)
+{
     var token = {
         'info' : data,
         'mac' : toHex(cu.hmac(key, JSON.stringify(data)))
@@ -83,7 +84,8 @@ function _create_id(data, callback) {
  * @param {Number} days - the number of days until the expiry date.
  * @return {Date} a Date object with the new expiry date.
  */
-function makeExpiryDate(days) {
+function makeExpiryDate(days)
+{
     var expiry = new Date();
     expiry.setDate(expiry.getDate() + days);
     expiry.setHours(0); expiry.setMinutes(0); expiry.setSeconds(0);
@@ -100,10 +102,13 @@ var create_id;
  * @param {Function} callback - the function to call when finished with token generation.
  *      It takes one argument, the token that was created.
  */
-exports.create_id = function create_id(callback) {
+exports.create_id = function create_id(callback)
+{
     var expiry = makeExpiryDate(7);
-    var data = {'expires'   : expiry,
-                'nonce'     : toHex(nacl.crypto_box_random_nonce())};
+    var data = {
+        'expires'   : expiry,
+        'nonce'     : toHex(nacl.crypto_box_random_nonce())
+    };
     _create_id(data, callback);
 }
 create_id = exports.create_id;
@@ -118,7 +123,8 @@ exports.refresh_id = function refresh_id(old, callback) {
     if (_verify_id(old) !== VALID) {
         callback(new Error('ERROR: Previous ID invalid.'));
     }
-    var new_data = {
+    var new_data = 
+    {
         'expires' : makeExpiryDate(7),
         'nonce' : toHex(nacl.crypto_box_random_nonce()),
         'previous' : old['mac']
@@ -136,12 +142,15 @@ exports.refresh_id = function refresh_id(old, callback) {
  *  2 (INVALID)
  *  3 (EXPIRED AND INVALID)
  */
-function _verify_id(token) {
+function _verify_id(token) 
+{
     var result = VALID;
-    if (token['info']['expires'] < new Date()) {
+    if (token['info']['expires'] < new Date()) 
+    {
         result = EXPIRED;
     }
-    if (token['mac'] !== toHex(cu.hmac(key, JSON.stringify(token['info'])))) {
+    if (token['mac'] !== toHex(cu.hmac(key, JSON.stringify(token['info'])))) 
+    {
         result |= INVALID;
     }
     return result;
@@ -159,7 +168,8 @@ function _verify_id(token) {
  *      value between 0 and 3, inclusively. A calling function should
  *      only accept the token if it is VALID (0).
  */
-exports.verify_id = function verify_id(token, callback) {
+exports.verify_id = function verify_id(token, callback) 
+{
     callback(_verify_id(token));
 }
 
