@@ -33,6 +33,10 @@ clone separately, patch, and move into the node-modules directory.
 Hopefully, this will not be necessary for long, if the pull request 
 gets merged into the node-sodium repository.
 
+There seem to also be some issues compiling node-sodium on 32 bit systems.
+See [this issue](https://github.com/paixaop/node-sodium/issues/25)
+for details and a not fully working workaround.
+
 ##Installation
 Installation should be possible just cloning the Github repository
 and, in the `MobileEdge-Server/node/` directory, typing 
@@ -56,7 +60,7 @@ APT using `apt-key add mongodb-gpgkey`).
 ##TODO
 There is quite a few things which need to be done at some point:
 * Thorough code cleanup, extracting some of the stuff in main into  
-  separate modules.
+  separate modules; polishing the Axolotl lib - very dirty at the moment...
 * more extensive (unit) testing. Currently, mostly integration tests  
   are done.
 * Put some thought into the obvious security implications when storing  
@@ -69,3 +73,4 @@ There is quite a few things which need to be done at some point:
 * Take care of checking signatures on Prekeys, if we deem that necessary.
 * Explore the possibility of more efficient socket usage (currently,  
   every request from a client opens a TCP socket to the actual backend...)
+* Rewriting this in a more appropriate language... :D
