@@ -71,22 +71,30 @@ function isString(s) {
  * @param {String|Uint8Array} b - the other item
  * @return {string|Uint8Array} the XORed result
  */
-exports.xor = function xor(a, b) {
+exports.xor = function xor(a, b) 
+{
     var result;
     if (    (a instanceof Uint8Array || a instanceof Buffer) 
-         && (b instanceof Uint8Array || b instanceof Buffer)) {
+         && (b instanceof Uint8Array || b instanceof Buffer)) 
+    {
         var len = Math.max(a.length, b.length);
         result = new Buffer(len);
-        for (var i = 0; i < len; i++) {
+        for (var i = 0; i < len; i++) 
+        {
             result[i] = ((i >= a.length)? 0 : a[i]) ^ ((i >= b.length)? 0 : b[i]);
         }
-    } else if (exports.isString(a) && exports.isString(b)) {
+    }
+    else if (exports.isString(a) && exports.isString(b)) 
+    {
         var len = Math.max(a.length, b.length);
         result = "";
-        for (var i = 0; i < len; i++) {
+        for (var i = 0; i < len; i++) 
+        {
             result += String.fromCharCode(((i >= a.length)? 0 : a.charCodeAt(i)) ^ ((i >= b.length)? 0 : b.charCodeAt(i)));
         }
-    } else {
+    }
+    else
+    {
         exports.log("I dont know how to xor these types...");
     }
     return result;
@@ -106,8 +114,10 @@ exports.xor = function xor(a, b) {
  * @param {*} obj - the object the function should be mapped over
  * @return {*} the modified object 
  */
-exports.map = function map(f, obj) {
-    for(var item in obj) {
+exports.map = function map(f, obj)
+{
+    for(var item in obj)
+    {
         obj[item] = f(obj[item]);
     }
     return obj;
@@ -119,7 +129,8 @@ exports.map = function map(f, obj) {
  * @param {String} hexString - the hexadecimal string
  * @return {String} the base64 encoded string
  */
-exports.hexToBase64 = function hexToBase64(hexString) {
+exports.hexToBase64 = function hexToBase64(hexString)
+{
     var b = new Buffer(hexString, 'hex');
     return b.toString('base64');
 }
@@ -130,7 +141,8 @@ exports.hexToBase64 = function hexToBase64(hexString) {
  * @return {String} base64String - the base64 encoded string
  * @return {String} the hexadecimal string
  */
-exports.base64ToHex = function base64ToHex(base64String) {
+exports.base64ToHex = function base64ToHex(base64String)
+{
     var b = new Buffer(base64String, 'base64');
     return b.toString('hex');
 }
