@@ -1,3 +1,6 @@
 ca
+ca2
 node/node_modules
 node/build
+node/ssl/*.pem
+node/ssl/backup
