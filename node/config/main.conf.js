@@ -31,15 +31,15 @@ var config = {
     /*
      * path to ssl key file:
      */
-    serverKey : './ssl/server.key',
+    serverKey : './ssl/key.pem',
     /*
      * path to ssl certificate:
      */
-    serverCertificate : './ssl/server.crt',
+    serverCertificate : './ssl/cert.pem',
     /*
      * path to ssl CA certificate:
      */
-    CACertificate : './ssl/ca.crt',
+    CACertificate : './ssl/cert.pem',
 };
 
 exports.mainConfiguration = config; 
