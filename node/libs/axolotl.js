@@ -52,7 +52,8 @@ var newDHParam = sodium.crypto_box_keypair;
  * 
  * @return {Object} the ID key as an object containing two Uint8Arrays.
  */
-var getIDKey = function() {
+var getIDKey = function()
+{
     var str = fs.readFileSync('./private_ec_id', {encoding: 'utf8'});
     var buf = new Buffer(str, 'base64');
     var id = JSON.parse(buf.toString('utf8'));
@@ -71,7 +72,8 @@ var getIDKey = function() {
  * 
  * @return {Object} An object containing secretKey and publicKey, both as hex string.
  */
-var generateIDKey = function() {
+var generateIDKey = function()
+{
     var params = newDHParam();
     params.secretKey = params.secretKey.toString('base64');
     params.publicKey = params.publicKey.toString('base64');
@@ -87,7 +89,8 @@ var generateIDKey = function() {
  * @param {Function} callback function to call when done
  */
 var deriveKeysBob = exports.deriveKeysBob =
-function deriveKeysBob(mine, their, callback) {
+function deriveKeysBob(mine, their, callback)
+{
     var part1 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.id, 'base64')),
         part2 = sodium.crypto_scalarmult(mine.id.secretKey, new Buffer(their.eph0, 'base64')),
         part3 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.eph0, 'base64'));
@@ -102,7 +105,8 @@ function deriveKeysBob(mine, their, callback) {
  * @param {Function} callback function to call when done
  */
 var deriveKeysAlice = exports.deriveKeysAlice =
-function deriveKeysAlice(mine, their, callback) {
+function deriveKeysAlice(mine, their, callback)
+{
     var part1 = sodium.crypto_scalarmult(mine.id.secretKey, new Buffer(their.eph0, 'base64')),
         part2 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.id, 'base64')),
         part3 = sodium.crypto_scalarmult(mine.eph0.secretKey, new Buffer(their.eph0, 'base64'));
@@ -117,11 +121,13 @@ function deriveKeysAlice(mine, their, callback) {
  * @param {Buffer} part3 third part of the input material
  * @param {Function} callback function to call when done
  */
-function deriveKeys(part1, part2, part3, callback) {
+function deriveKeys(part1, part2, part3, callback)
+{
     var master_key = sodium.crypto_hash(
-            Buffer.concat([part1, part2, part3], 3 * sodium.crypto_scalarmult_BYTES)
-            ); // Note that this is SHA512 and not SHA256. It does not have to be.
-    cu.hkdf(master_key, 'MobileEdge', 5*32, function(key){
+        Buffer.concat([part1, part2, part3], 3 * sodium.crypto_scalarmult_BYTES)
+    ); // Note that this is SHA512 and not SHA256. It does not have to be.
+    cu.hkdf(master_key, 'MobileEdge', 5*32, function(key)
+    {
         res = {
             'rk'    : key.slice(0, key.length / 5),
             'hk'   : key.slice(key.length / 5, 2 * key.length / 5),
@@ -149,7 +155,8 @@ function deriveKeys(part1, part2, part3, callback) {
  *  object, which the application should save to persistent memory.
  */
 exports.keyAgreement = 
-function keyAgreement(keyExchangeMsg, callback) {
+function keyAgreement(keyExchangeMsg, callback)
+{
     var dsm = new DataSource(),
         state = dsm.axolotl_state.create();
     var myId = getIDKey(),                  // B
@@ -161,7 +168,8 @@ function keyAgreement(keyExchangeMsg, callback) {
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysBob({ 'id': myId, 'eph0' : myEph0, 'eph1' : myEph1 },
                 keyExchangeMsg,
-                function(res) {
+                function(res) 
+    {
         state.root_key              = res.rk;
         state.chain_key_send        = res.ck; // Server is Bob. So we set CKs first.
         state.header_key_send       = res.hk;
@@ -176,11 +184,15 @@ function keyAgreement(keyExchangeMsg, callback) {
         state.counter_recv = 0;
         state.previous_counter_send = 0;
         state.ratchet_flag = false;
-        dsm.axolotl_state.save(function(err, doc) {
-            if (err) {
+        dsm.axolotl_state.save(function(err, doc)
+        {
+            if (err)
+            {
                 mu.log(err);
                 callback(err);
-            } else {
+            }
+            else
+            {
                 callback(null, {
                     'id': myId.publicKey.toString('base64'),
                     'eph0' : myEph0.publicKey.toString('base64'),
@@ -200,7 +212,8 @@ function keyAgreement(keyExchangeMsg, callback) {
  *  The objects each contain a secretKey and a publicKey field.
  */
 exports.genParametersAlice =
-function genParametersAlice() {
+function genParametersAlice()
+{
     return {
         'id'    : newDHParam(),
         'eph0'  : newDHParam()
@@ -211,7 +224,8 @@ function genParametersAlice() {
  * @description For testing purposes, we also need to emulate Alice (the client).
  */
 exports.keyAgreementAlice =
-function keyAgreementAlice(myParams, keyExchangeMsg, callback) {
+function keyAgreementAlice(myParams, keyExchangeMsg, callback)
+{
     var myId = myParams.id,            // A
         myEph0 = myParams.eph0;       // A_0
     mu.debug('keyAgreementAlice', keyExchangeMsg);
@@ -221,7 +235,8 @@ function keyAgreementAlice(myParams, keyExchangeMsg, callback) {
     // Axolotl generates master_key = H (DH(A,B_0) || DH(A_0,B) || DH(A_0,B_0))
     deriveKeysAlice({ 'id': myId, 'eph0' : myEph0 },
                 { 'id': theirId, 'eph0' : theirEph0, 'eph1' : theirEph1 }, 
-                function(res) {
+                function(res)
+    {
         callback(null, res);
     });
 }
@@ -231,7 +246,8 @@ function keyAgreementAlice(myParams, keyExchangeMsg, callback) {
  * @param {AxolotlState} state the AxolotlState associated with the receiver
  * @param {Function} callback the function to call when ratcheting is done.
  */
-function advanceRatchetSend(state, callback) {
+function advanceRatchetSend(state, callback)
+{
     var updatedKey = newDHParam();
     state.dh_ratchet_key_send = updatedKey.secretKey;
     state.dh_ratchet_key_send_pub = updatedKey.publicKey;
@@ -240,7 +256,8 @@ function advanceRatchetSend(state, callback) {
                 state.dh_ratchet_key_send,
                 state.dh_ratchet_key_recv),
         input = cu.hmac(state.root_key, dh)
-    cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function (key) {
+    cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function (key)
+    {
         state.root_key = key.slice(0, key.length / 3);
         state.next_header_key_send = key.slice(key.length / 3, 2 * key.length / 3);
         state.chain_key_send = key.slice(2 * (key.length / 3));
@@ -277,10 +294,12 @@ function advanceRatchetSend(state, callback) {
  *  is responsible of saving to persistent storage.
  */
 exports.sendMessage =
-function sendMessage(identity, msg, callback) {
+function sendMessage(identity, msg, callback)
+{
     //TODO: nonce in encrypted message
     var dsrc;
-    function workerSend(state) {
+    function workerSend(state)
+    {
         var msgKey = cu.hmac(state.chain_key_send, "0"),
             nonce1 = new Buffer(sodium.crypto_secretbox_NONCEBYTES),
             nonce2 = new Buffer(sodium.crypto_secretbox_NONCEBYTES);
@@ -305,31 +324,40 @@ function sendMessage(identity, msg, callback) {
         var ciphertext = {
             'head'  : msgHead.toString('base64'),
             'body'  : msgBody.toString('base64')
-                //TODO mac!?
         }
         mu.debug('in SEND:', ciphertext);
         state.counter_send += 1;
         state.chain_key_send = new Buffer(cu.hmac(state.chain_key_send, "1"));
-        dsrc.axolotl_state.save(function(err, doc){
-            if (err) {
+        dsrc.axolotl_state.save(function(err, doc)
+        {
+            if (err)
+            {
                 mu.log("ERROR in sendMessage:", err);
                 callback(err, ciphertext, state);
-            } else {
+            } 
+            else
+            {
                 callback(null, ciphertext, state);
             }
         });
     }
     dsrc = new DataSource();
     var kk = dsrc.axolotl_state;
-    dsrc.axolotl_state.get(new Buffer(identity, 'base64'), function(err, state){
-        if (!state) {
-            mu.debug("Error:", "No state for this client present. Could not even fetch it myself.\nID:", identity);
+    dsrc.axolotl_state.get(new Buffer(identity, 'base64'), function(err, state)
+    {
+        if (!state)
+        {
+            mu.debug("Error:", "No state for this client present\nID:", identity);
             if (err)
                 mu.log('Error from db:', err);
             callback(new Error("No state for this client present."));
-        } else if (state.ratchet_flag) {
+        } 
+        else if (state.ratchet_flag)
+        {
             advanceRatchetSend(state, workerSend);
-        } else {
+        }
+        else
+        {
             workerSend(state);
         }
     }); 
@@ -356,8 +384,8 @@ function sendMessage(identity, msg, callback) {
  * @return {AxolotlState} the new state.
  */
 function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey, 
-        purportedNextHeaderKey, purportedDHRatchetKey) {
-
+        purportedNextHeaderKey, purportedDHRatchetKey)
+{
     mu.debug("state in advRatRecv: ",state);
     state.root_key = purportedRootKey;
     state.header_key_recv = purportedHeaderKey;
@@ -380,19 +408,23 @@ function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey,
  *  (delete skipped keys that succeeded in decrypting) and the plaintext if
  *  decryption was possible.
  */
-function try_skipped_header_and_message_keys(state, msg) {
-    for (var i = 0; i < state.skipped_hk_mk.length; i++) {
+function try_skipped_header_and_message_keys(state, msg)
+{
+    for (var i = 0; i < state.skipped_hk_mk.length; i++)
+    {
         mu.debug("try_skipped: key:", state.skipped_hk_mk[i].hk);
         var purportedHdr = decryptHeader(state.skipped_hk_mk[i].hk, msg.head);
-        if (purportedHdr instanceof Error) { // this skipped header key was not the right one
+        if (purportedHdr instanceof Error)
+        { // this skipped header key was not the right one
             continue;
         }
         var plainMsg = decryptBody(state.skipped_hk_mk[i].mk, msg.body);
-        if (plainMsg instanceof Error) { // this message key was not the right one
+        if (plainMsg instanceof Error)
+        { // this message key was not the right one
             continue;
         }
         state.skipped_hk_mk.splice(i,1);// delete skipped keys, FIXME: does this do what I think it does?
-        return { 'state' : state, 'msg' : plainMsg }
+        return { 'state' : state, 'msg' : plainMsg };
     }
     return new Error('Unable to decrypt using skipped keys.');
 }
@@ -411,12 +443,14 @@ function try_skipped_header_and_message_keys(state, msg) {
  * @return {Object} an object containing the last computed chain key, message key, and
  *  the possibly populated staging area.
  */
-function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, stage_result) {
+function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, stage_result)
+{
     var msgKey,
         headerKey = HKr,
         chainKey = CKr;
     mu.debug('stage_skipped: key:', headerKey);
-    for (var i = Nr; i < Np; i++) {
+    for (var i = Nr; i < Np; i++)
+    {
         // Each message will have a different MK derived from the chain key.
         msgKey = cu.hmac(chainKey, "0");
         // The chain key will also be derived and renewed in each step.
@@ -433,7 +467,8 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
     msgKey = cu.hmac(chainKey, "0");
     chainKey = cu.hmac(chainKey, "1");
     
-    if (stage_result && Nr != Np) {
+    if (stage_result && Nr != Np)
+    {
         stagingArea.push({
             'timestamp' : Date.now(),    //might be unnecessary.
             'hk' : headerKey,
@@ -451,7 +486,8 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
  * @param {Array} stagingArea the staging area populated with skipped keys
  * @return {AxolotlState} the modified state
  */
-function commit_skipped_header_and_message_keys(state, stagingArea) {
+function commit_skipped_header_and_message_keys(state, stagingArea)
+{
     mu.debug("commit: ", state.skipped_hk_mk, stagingArea);
     state.skipped_hk_mk = state.skipped_hk_mk.concat(stagingArea);
     return state;
@@ -466,7 +502,8 @@ function commit_skipped_header_and_message_keys(state, stagingArea) {
  * @return {Error|Array} either an Error if decryption failed, or the Array object corresponding
  *  to the decrypted header.
  */
-function decryptHeader(key, ciphertext) {
+function decryptHeader(key, ciphertext)
+{
     //TODO: nonce in encrypted message
     var plainHdr;
     var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
@@ -474,20 +511,26 @@ function decryptHeader(key, ciphertext) {
     var paddedCiphertext = buf.slice(0,-24);
 
     mu.debug('key:', key, 'text:', ciphertext, 'nonce', nonce);
-    try { //TODO: use domains instead, not try/catch?
+    try
+    { //TODO: use domains instead, not try/catch?
         plainHdr = sodium.crypto_secretbox_open(
                 paddedCiphertext,
                 new Buffer(nonce, 'base64'), 
                 key); //key was stored as Buffer or computed locally
         if (!plainHdr) return new Error('Header decryption failed!' +
                ciphertext + typeof(ciphertext));
-    } catch (err) {
+    } 
+    catch (err)
+    {
         return new Error('Header decryption failed' + err.message);
     }
-    try {
+    try
+    {
         var header = JSON.parse(plainHdr.toString('utf8'));
         return header;
-    } catch (err) {
+    }
+    catch (err)
+    {
         mu.log('Invalid header format!', err.message);
         return new Error('Invalid header format:' + err.message + plainHdr );
     }
@@ -502,21 +545,26 @@ function decryptHeader(key, ciphertext) {
  * @return {Error|String} either an Error if decryption failed, or a String containing 
  *  the decrypted message.
  */
-function decryptBody(key, ciphertext) {
+function decryptBody(key, ciphertext)
+{
     //TODO: nonce in encrypted message
     var plaintext;
     var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
     var nonce = buf.slice(-24);
     var paddedCiphertext = buf.slice(0,-24);
 
-    try { //TODO: use domains instead, not try/catch!
+    try
+    { //TODO: use domains instead, not try/catch!
         plaintext = sodium.crypto_secretbox_open(
                 paddedCiphertext,
                 new Buffer(nonce, 'base64'),
                 key);
-        if (!plaintext) return new Error('Body decryption failed! ' +
+        if (!plaintext)
+            return new Error('Body decryption failed! ' +
                ciphertext + typeof(ciphertext));
-    } catch (err) {
+    }
+    catch (err)
+    {
         return new Error(err.message);
     }
     return plaintext.toString('utf8');
@@ -531,17 +579,22 @@ function decryptBody(key, ciphertext) {
  * @param {Buffer} CKp - the new purported chain key to save to the state
  * @param {Function} callback - the callback to call with plaintext and updated state
  */
-function finish(dsrc, stagingArea, plaintext, Np, CKp, callback) {
+function finish(dsrc, stagingArea, plaintext, Np, CKp, callback)
+{
     var state = dsrc.axolotl_state.retrieve();
     state = commit_skipped_header_and_message_keys(state, stagingArea);
     state.counter_recv = Np + 1;
     state.chain_key_recv = CKp;
 
-    dsrc.axolotl_state.save(function(err){
-        if (err) {
+    dsrc.axolotl_state.save(function(err)
+    {
+        if (err)
+        {
             mu.log("ERROR in recvMessage saving state:", err);
             callback(err, plaintext, state);
-        } else {
+        }
+        else
+        {
             callback(null, plaintext, state);
         }
     });
@@ -553,8 +606,8 @@ function finish(dsrc, stagingArea, plaintext, Np, CKp, callback) {
  * @param {Array} header the header
  * @return {Object} the parsed header
  */
-function parseHeader(header) {
-    //TODO: nonce in encrypted message
+function parseHeader(header)
+{
     return {
         'msg_number'        : header[0],
         'prev_msg_number'   : header[1],
@@ -571,8 +624,10 @@ function parseHeader(header) {
  * @param msg message to display if err was actually an Error
  * @param decryptionCallback callback the function to call in case we had an error.
  */
-function handlePotentialError(err, msg, callback) {
-    if (err instanceof Error) {
+function handlePotentialError(err, msg, callback)
+{
+    if (err instanceof Error)
+    {
         mu.log(msg,'\n\t', err.message);
         callback(err);
     }
@@ -591,19 +646,22 @@ function handlePotentialError(err, msg, callback) {
  * @param {Array} stagingArea - the staging area for skipped keys
  * @param {DecryptionCallback} callback - the function to call with the decrypted message or an error
  */
-function handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingArea, callback) {
+function handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingArea, callback)
+{
     // ... and decryption with it does not fail.
-    //TODO: nonce in encrypted message
     var hdr = parseHeader(purportedHdr);
     var keys = stage_skipped_header_and_message_keys(stagingArea, state.header_key_recv, 
             state.counter_recv, hdr.msg_number, state.chain_key_recv);
     var purportedChainKey = keys.CKp;
     var plaintext = decryptBody(keys.MK, ciphertext.body);
-    if (plaintext instanceof Error) {
+    if (plaintext instanceof Error)
+    {
         mu.log('Error: Failed to decrypt message body with purported message key (1).',
         '\n\t', plaintext.message);
         callback(plaintext);
-    } else {
+    }
+    else
+    {
         stagingArea = keys.stagingArea;
         finish(dsrc, stagingArea, plaintext, hdr.msg_number, purportedChainKey, callback);
     }
@@ -635,11 +693,14 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
     stagingArea = keys.stagingArea;
     purportedChainKey = keys.CKp;
     var plaintext = decryptBody(keys.MK, ciphertext.body);
-    if (plaintext instanceof Error) {
+    if (plaintext instanceof Error)
+    {
         mu.log('Error: Failed to decrypt message body with purported message key (2).',
         '\n\t', plaintext.message);
         callback(plaintext);
-    } else {
+    }
+    else
+    {
         state = advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey, 
             purportedNextHeaderKey, hdr.dh_ratchet_key);
         finish(dsrc, stagingArea, plaintext, hdr.msg_number, purportedChainKey, callback);
@@ -656,19 +717,25 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
  * @param {Array} stagingArea - the staging area for skipped keys
  * @param {DecryptionCallback} callback - the function to call with the decrypted message or an error
  */
-function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
-    //TODO: nonce in encrypted message
+function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback)
+{
     mu.debug("handleWithoutKey: key:", state.next_header_key_recv);
     var purportedHdr = decryptHeader(state.next_header_key_recv, ciphertext.head);
-    if (purportedHdr instanceof Error) {
+    if (purportedHdr instanceof Error)
+    {
         mu.log('Error: Failed to decrypt message header with next_header_key_recv.','\n\t', purportedHdr.message);
         callback(purportedHdr);
-    } else if (purportedHdr.length != 3) {
+    }
+    else if (purportedHdr.length != 3)
+    {
         var errmsg = 'Decrypted header has unexpected format.';
         handlePotentialError(new Error(errmsg), errmsg, callback);
-    } else {
+    }
+    else
+    {
         var hdr = parseHeader(purportedHdr);
-        if (state.chain_key_recv) { // else we have never established a key with which to decrypt any messages anyway.
+        if (state.chain_key_recv)
+        { // else we have never established a key with which to decrypt any messages anyway.
             stagingArea = stage_skipped_header_and_message_keys(stagingArea, state.header_key_recv, 
                 state.counter_recv, hdr.prev_msg_number, 
                 state.chain_key_recv,
@@ -682,7 +749,8 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
                 state.dh_ratchet_key_send,
                 new Buffer(hdr.dh_ratchet_key, 'base64')),
             input = cu.hmac(state.root_key, dh);
-        cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function keyDerivationCallback(key) {
+        cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function keyDerivationCallback(key)
+        {
             attemptDecryptionUsingDerivedKeyMaterial(dsrc, 
                 state, ciphertext, hdr, key, purportedHeaderKey, stagingArea, callback);
         });
@@ -710,12 +778,15 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback) {
  *  storage.
  */
 exports.recvMessage = 
-function recvMessage(identity, ciphertext, callback) {
+function recvMessage(identity, ciphertext, callback)
+{
     //TODO: nonce in encrypted message
     mu.debug('IN RECEIVE:', ciphertext);
     var dsrc = new DataSource();
-    dsrc.axolotl_state.get(new Buffer(identity, 'base64'), function(err, state) {
-        if (!state) {
+    dsrc.axolotl_state.get(new Buffer(identity, 'base64'), function(err, state)
+    {
+        if (!state)
+        {
             return callback(new Error('recvMessage: could not find state for id '+identity))
         }
         /**
@@ -723,7 +794,8 @@ function recvMessage(identity, ciphertext, callback) {
          */
         var stagingArea = [],
             plaintext = try_skipped_header_and_message_keys(state, ciphertext);
-        if (!(plaintext instanceof Error)) { // we found a skipped key and decryption succeeded.
+        if (!(plaintext instanceof Error))
+        { // we found a skipped key and decryption succeeded.
             callback(null, plaintext.msg, plaintext.state);
             return;
         }
@@ -732,11 +804,16 @@ function recvMessage(identity, ciphertext, callback) {
         if (state.header_key_recv  // we have a key which we can decrypt received headers with
             && !((purportedHdr = decryptHeader(state.header_key_recv, ciphertext.head)) instanceof Error)) {
             handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingArea, callback);
-        } else {
-            if (state.ratchet_flag) { // we have not ratcheted yet so the state is inconsistent.
+        }
+        else
+        {
+            if (state.ratchet_flag)
+            { // we have not ratcheted yet so the state is inconsistent.
                 var errmsg = 'Error: Inconsistent ratchet state. Did not expect ratchet_flag to be set.';
                 handlePotentialError(new Error(errmsg), errmsg, callback);
-            } else {
+            }
+            else
+            {
                 handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback);
             }
         }
