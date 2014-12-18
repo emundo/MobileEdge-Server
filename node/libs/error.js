@@ -113,5 +113,9 @@ exports.errCodeEnum = errorCodeEnum;
  */
 exports.createErrorObject = function createErrorObject(errorCode, customMessage)
 {
-    return { 'errCode' : errorCodeEnum[errorCode], 'errMsg' : errorCodeMsgEnum[errorCode], 'errDevMsg' : customMessage };
+    return {
+        'errCode' : errorCodeEnum[errorCode],
+        'errMsg' : errorCodeMsgEnum[errorCode],
+        'errDevMsg' : customMessage 
+    };
 }
