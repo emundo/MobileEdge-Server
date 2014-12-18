@@ -43,7 +43,8 @@ var DataSource = ds.DataSource;
  * @param {PrekeyPutCallback} callback the function to call when prekey was successfully added
  */
 exports.put =
-function put(id_mac, key_id, base_key, callback) {
+function put(id_mac, key_id, base_key, callback)
+{
     var dsm = new DataSource();
     dsm.prekeys.put(id_mac, key_id, base_key, callback);
 }
@@ -61,7 +62,8 @@ function put(id_mac, key_id, base_key, callback) {
  *  an error occurred.
  */
 exports.get =
-function get(id_mac, callback) {
+function get(id_mac, callback)
+{
     var dsm = new DataSource();
     dsm.prekeys.get(id_mac, callback);
 }
