@@ -44,22 +44,8 @@ var mu = require('./util.js'); // My Util
  * @param {String} data - the data to be embedded in the HMAC
  * @return {Uint8Array} - the HMAC created from key and data as 32 bytes
  */
-/*
-exports.hmac = function hmac(key, data) {
-    //mu.debug("Hashing:", nacl.to_hex(key), data);
-    var opad = new Uint8Array(64), // outer padding
-        ipad = new Uint8Array(64); // inner padding 
-    for (var i = 0; i < opad.length; i++)
-        opad[i] = 0x5c;
-    for (var i = 0; i < ipad.length; i++)
-        ipad[i] = 0x36;
-    var innerParam = nacl.to_hex(mu.xor(key, ipad)) + nacl.to_hex(nacl.encode_utf8(data)),
-        innerHash = nacl.crypto_hash_sha256(nacl.from_hex(innerParam)),
-        outerParam = nacl.to_hex(mu.xor(key, opad)) + nacl.to_hex(innerHash);
-    return nacl.crypto_hash_sha256(nacl.from_hex(outerParam));
-}
-*/
-exports.hmac = function hmac(key, data) {
+exports.hmac = function hmac(key, data)
+{
     var opad = new Buffer(64), // outer padding
         ipad = new Buffer(64); // inner padding 
     for (var i = 0; i < opad.length; i++)
@@ -72,7 +58,8 @@ exports.hmac = function hmac(key, data) {
     return sodium.crypto_hash_sha256(outerParam);
 }
 
-function _hmac(key, data) {
+function _hmac(key, data)
+{
     var hmac = crypto.createHmac('sha256', key);
     hmac.update(data);
     return hmac.digest();
@@ -92,10 +79,11 @@ exports._hmac = _hmac;
  * @param {module:crypto_util.KeyDeriveCallback} callback the function
  *  to call with the key when finished
  */
-exports.hkdf = function hkdf(inputKeyMaterial, info, length, callback) {
+exports.hkdf = function hkdf(inputKeyMaterial, info, length, callback)
+{
     var hkdf = new HKDF('sha256', 'salty', inputKeyMaterial);
-    hkdf.derive(info , length, function(key) {
-        //key = key.toString('hex');
+    hkdf.derive(info , length, function(key)
+    {
         callback(key);
     });
 }
