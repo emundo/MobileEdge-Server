@@ -19,22 +19,31 @@
  * Created by Raphael Arias on 2014-12-11.
  */
 var net = require('net');
+var mongoose = require('mongoose');
 
 var HOST = '127.0.0.1';
 var PORT = 6969;
+var dbConfig = require('../config/db.conf.js').dbConfiguration;
+
+global.db_conn = mongoose.connect('mongodb://'+dbConfig.host + '/' + 'messages');
+
+function saveMessageForUser(message, user)
+{
+    
+}
 
 net.createServer(function(sock) {
     console.log('CONNECTED: ' + sock.remoteAddress +':'+ sock.remotePort);
     
     sock.on('data', function(data) {
-        console.log('DATA ' + sock.remoteAddress + ':', data);
+        //console.log('DATA ' + sock.remoteAddress + ':', data);
         sock.write('You said "' + data + '"');
     });
     sock.on('end', function(data) {
-        console.log('Ended by client: ' + sock.remoteAddress +' '+ sock.remotePort);
+        //console.log('Ended by client: ' + sock.remoteAddress +' '+ sock.remotePort);
     });
     sock.on('close', function(data) {
-        console.log('CLOSED: ' + sock.remoteAddress +' '+ sock.remotePort);
+        //console.log('CLOSED: ' + sock.remoteAddress +' '+ sock.remotePort);
     });
 }).listen(PORT, HOST);
 
