@@ -155,13 +155,15 @@ function handleEncrypted(msg, callback)
             }
             else 
             {
+                var decryptedMessage = undefined;
                 try 
                 { // TODO: use domains instead of try/catch!
                     decrypted_msg = JSON.parse(plaintext);
                 } 
                 catch (err) 
                 {
-                    callback({ 
+                    myutil.debug("decrypted plaintext:", plaintext);
+                    return callback({ 
                         'statusCode' : 400, // 400: Bad Request
                         'message' : createErrorObject("ERROR_CODE_INVALID_INTERNAL_MESSAGE_FORMAT") 
                     });
@@ -200,20 +202,26 @@ function handleEncrypted(msg, callback)
         {
             if (err)
             { // try again using normal "from" field
+                myutil.debug("error decrypting sender information", err);
                 receive(msg.from);
             }
             else
             {
-                decrypted_msg.from = from;
+                //decrypted_msg.from = from;
+                msg.from = from;
                 receive(from);
             }
         });
     }
-    receive(msg.from);
+    else
+    {
+        receive(msg.from);
+    }
 }
 
 function handleProxy(msg, callback)
 {
+    myutil.debug('Handling proxy request.');
     const HOST = proxyConfig.host;
     const PORT = proxyConfig.port;
     const TERMINATION_SEQUENCE = proxyConfig.terminationSeq;
@@ -229,7 +237,8 @@ function handleProxy(msg, callback)
 
     client.connect(PORT, HOST, function() {
         myutil.debug('CONNECTED TO: ' + HOST + ':' + PORT);
-        client.write(msg.payload);
+        myutil.debug('MESSAGE: ', msg.payload);
+        client.write(JSON.stringify(msg.payload));
         client.end();
     });
 
@@ -248,8 +257,8 @@ function handleProxy(msg, callback)
     { // server is closing the connection. Doing so, too.
         myutil.debug('Server is closing the connection. Doing so, too.');
         client.end();
-        response.message = { 'type' : 'PROXY', 'payload' : responseContent };
-        callback(response);
+        //response.message = { 'type' : 'PROXY', 'payload' : responseContent };
+        //callback(response);
     });
 
     client.on('timeout', function() {
@@ -258,7 +267,7 @@ function handleProxy(msg, callback)
     });
 
     client.on('close', function() {
-        console.log('Connection closed.');
+        myutil.debug('Connection closed.');
         response.message = { 'type' : 'PROXY', 'payload' : responseContent };
         callback(response);
     });
@@ -529,5 +538,6 @@ var secureServer = https.createServer(sslOptions, function(request, response)
     });
 }).listen(mainConfig.port, mainConfig.host, function()
 {
-    myutil.log("Secure server listening on port 8888");
+    myutil.log("Secure server listening on port", mainConfig.port);
+    myutil.log("public key:", axolotl.getPublicKey());
 });

@@ -77,7 +77,6 @@ var generateIDKey = function()
     var params = newDHParam();
     params.secretKey = params.secretKey.toString('base64');
     params.publicKey = params.publicKey.toString('base64');
-    mu.debug('Buff:', (new Buffer(JSON.stringify(params))).toString('base64'));
     return params;
 };
 
@@ -135,7 +134,6 @@ function deriveKeys(part1, part2, part3, callback)
             'nhk1'  : key.slice(3 * key.length / 5, 4 * key.length / 5),
             'ck'  : key.slice(4 * key.length / 5)
         };
-        mu.debug('deriveKeys:', res);
         callback(res);
     });
 }
@@ -228,7 +226,6 @@ function keyAgreementAlice(myParams, keyExchangeMsg, callback)
 {
     var myId = myParams.id,            // A
         myEph0 = myParams.eph0;       // A_0
-    mu.debug('keyAgreementAlice', keyExchangeMsg);
     var theirId = keyExchangeMsg['id'],                     // B
         theirEph0 = keyExchangeMsg['eph0'],             // B_0
         theirEph1 = keyExchangeMsg['eph1'];                 // B_1 
@@ -260,7 +257,7 @@ function advanceRatchetSend(state, callback)
     {
         state.root_key = key.slice(0, key.length / 3);
         state.next_header_key_send = key.slice(key.length / 3, 2 * key.length / 3);
-        state.chain_key_send = key.slice(2 * (key.length / 3));
+        state.chain_key_send = key.slice(2 * key.length / 3);
         
         state.previous_counter_send = state.counter_send;
         state.counter_send = 0;
@@ -317,15 +314,14 @@ function sendMessage(identity, msg, callback)
                         nonce2,
                         state.header_key_send);
         //Append the nonce to the end of ciphertext:
-        msgBody = Buffer.concat([msgBody.slice(16), nonce1], 
+        msgBody = Buffer.concat([nonce1, msgBody.slice(16)], 
                     msgBody.length - 16 + nonce1.length);
-        msgHead = Buffer.concat([msgHead.slice(16), nonce2], 
+        msgHead = Buffer.concat([nonce2, msgHead.slice(16)], 
                     msgHead.length - 16 + nonce2.length);
         var ciphertext = {
             'head'  : msgHead.toString('base64'),
             'body'  : msgBody.toString('base64')
         }
-        mu.debug('in SEND:', ciphertext);
         state.counter_send += 1;
         state.chain_key_send = new Buffer(cu.hmac(state.chain_key_send, "1"));
         dsrc.axolotl_state.save(function(err, doc)
@@ -333,11 +329,11 @@ function sendMessage(identity, msg, callback)
             if (err)
             {
                 mu.log("ERROR in sendMessage:", err);
-                callback(err, ciphertext, state);
+                return callback(err, ciphertext, state);
             } 
             else
             {
-                callback(null, ciphertext, state);
+                return callback(null, ciphertext, state);
             }
         });
     }
@@ -347,9 +343,8 @@ function sendMessage(identity, msg, callback)
     {
         if (!state)
         {
-            mu.debug("Error:", "No state for this client present\nID:", identity);
             if (err)
-                mu.log('Error from db:', err);
+                mu.debug('Error from db:', err);
             callback(new Error("No state for this client present."));
         } 
         else if (state.ratchet_flag)
@@ -386,7 +381,6 @@ function sendMessage(identity, msg, callback)
 function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey, 
         purportedNextHeaderKey, purportedDHRatchetKey)
 {
-    mu.debug("state in advRatRecv: ",state);
     state.root_key = purportedRootKey;
     state.header_key_recv = purportedHeaderKey;
     state.next_header_key_recv = purportedNextHeaderKey;
@@ -394,7 +388,6 @@ function advanceRatchetRecv(state, purportedRootKey, purportedHeaderKey,
     state.dh_ratchet_key_send = null;
     state.dh_ratchet_key_send_pub = null;
     state.ratchet_flag = true;
-    mu.debug("state AFTER advRatRecv: ",state);
     return state;
 }
 
@@ -412,7 +405,6 @@ function try_skipped_header_and_message_keys(state, msg)
 {
     for (var i = 0; i < state.skipped_hk_mk.length; i++)
     {
-        mu.debug("try_skipped: key:", state.skipped_hk_mk[i].hk);
         var purportedHdr = decryptHeader(state.skipped_hk_mk[i].hk, msg.head);
         if (purportedHdr instanceof Error)
         { // this skipped header key was not the right one
@@ -448,7 +440,6 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
     var msgKey,
         headerKey = HKr,
         chainKey = CKr;
-    mu.debug('stage_skipped: key:', headerKey);
     for (var i = Nr; i < Np; i++)
     {
         // Each message will have a different MK derived from the chain key.
@@ -488,7 +479,6 @@ function stage_skipped_header_and_message_keys(stagingArea, HKr, Nr, Np, CKr, st
  */
 function commit_skipped_header_and_message_keys(state, stagingArea)
 {
-    mu.debug("commit: ", state.skipped_hk_mk, stagingArea);
     state.skipped_hk_mk = state.skipped_hk_mk.concat(stagingArea);
     return state;
 }
@@ -504,18 +494,14 @@ function commit_skipped_header_and_message_keys(state, stagingArea)
  */
 function decryptHeader(key, ciphertext)
 {
-    //TODO: nonce in encrypted message
     var plainHdr;
-    var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
-    var nonce = buf.slice(-24);
-    var paddedCiphertext = buf.slice(0,-24);
+    var buffers = buffersFromBase64Ciphertext(ciphertext); 
 
-    mu.debug('key:', key, 'text:', ciphertext, 'nonce', nonce);
     try
     { //TODO: use domains instead, not try/catch?
         plainHdr = sodium.crypto_secretbox_open(
-                paddedCiphertext,
-                new Buffer(nonce, 'base64'), 
+                buffers.paddedCiphertext,
+                buffers.nonce,
                 key); //key was stored as Buffer or computed locally
         if (!plainHdr) return new Error('Header decryption failed!' +
                ciphertext + typeof(ciphertext));
@@ -547,17 +533,14 @@ function decryptHeader(key, ciphertext)
  */
 function decryptBody(key, ciphertext)
 {
-    //TODO: nonce in encrypted message
     var plaintext;
-    var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(ciphertext, 'base64')]);
-    var nonce = buf.slice(-24);
-    var paddedCiphertext = buf.slice(0,-24);
+    var buffers = buffersFromBase64Ciphertext(ciphertext);
 
     try
     { //TODO: use domains instead, not try/catch!
         plaintext = sodium.crypto_secretbox_open(
-                paddedCiphertext,
-                new Buffer(nonce, 'base64'),
+                buffers.paddedCiphertext,
+                buffers.nonce,
                 key);
         if (!plaintext)
             return new Error('Body decryption failed! ' +
@@ -686,7 +669,7 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
     //TODO: nonce in encrypted message
     var purportedRootKey = key.slice(0, key.length / 3);
     var purportedNextHeaderKey = key.slice(key.length / 3, 2 * key.length / 3);
-    var purportedChainKey = key.slice(2 * (key.length / 3));
+    var purportedChainKey = key.slice(2 * key.length / 3);
     var keys = stage_skipped_header_and_message_keys( stagingArea,
             purportedHeaderKey, 0, hdr.msg_number, purportedChainKey
         );
@@ -719,7 +702,6 @@ function attemptDecryptionUsingDerivedKeyMaterial(dsrc,
  */
 function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback)
 {
-    mu.debug("handleWithoutKey: key:", state.next_header_key_recv);
     var purportedHdr = decryptHeader(state.next_header_key_recv, ciphertext.head);
     if (purportedHdr instanceof Error)
     {
@@ -747,8 +729,8 @@ function handleWithoutKey(dsrc, state, ciphertext, stagingArea, callback)
         var purportedRootKey, purportedNextHeaderKey, purportedChainKey;
         var dh = sodium.crypto_scalarmult(
                 state.dh_ratchet_key_send,
-                new Buffer(hdr.dh_ratchet_key, 'base64')),
-            input = cu.hmac(state.root_key, dh);
+                new Buffer(hdr.dh_ratchet_key, 'base64'));
+        var input = cu.hmac(state.root_key, dh);
         cu.hkdf(input, 'MobileEdge Ratchet', 3*32, function keyDerivationCallback(key)
         {
             attemptDecryptionUsingDerivedKeyMaterial(dsrc, 
@@ -781,7 +763,6 @@ exports.recvMessage =
 function recvMessage(identity, ciphertext, callback)
 {
     //TODO: nonce in encrypted message
-    mu.debug('IN RECEIVE:', ciphertext);
     var dsrc = new DataSource();
     dsrc.axolotl_state.get(new Buffer(identity, 'base64'), function(err, state)
     {
@@ -800,7 +781,6 @@ function recvMessage(identity, ciphertext, callback)
             return;
         }
         var purportedHdr;
-        mu.debug("recvMessage: key:", state.header_key_recv);
         if (state.header_key_recv  // we have a key which we can decrypt received headers with
             && !((purportedHdr = decryptHeader(state.header_key_recv, ciphertext.head)) instanceof Error)) {
             handleWithExistingKey(dsrc, state, ciphertext, purportedHdr, stagingArea, callback);
@@ -820,6 +800,18 @@ function recvMessage(identity, ciphertext, callback)
     });
 }
 
+function buffersFromBase64Ciphertext(ciphertext)
+{
+    var result = {};
+    var buf = new Buffer(ciphertext, 'base64');
+    result.nonce = buf.slice(0,24);
+    result.paddedCiphertext = Buffer.concat([
+            new Buffer(16).fill(0),
+            buf.slice(24)
+        ]);
+    return result;
+}
+
 /**
  * @description Attempts to decrypt the sender's public key encrypted using (something
  *  similar to) DHIES
@@ -834,10 +826,11 @@ exports.decryptSenderInformation = function decryptSenderInformation(from, eph, 
 {
     var dh = sodium.crypto_scalarmult(getIDKey().secretKey, new Buffer(eph, 'base64'));
     cu.hkdf(dh, 'MobileEdge PubKeyEncrypt', 32, function (key) {
-        var buf = Buffer.concat([new Buffer(16).fill(0), new Buffer(from, 'base64')]);
-        var paddedFrom = buf.slice(0,-24);
-        var nonce = buf.slice(-24);
-        var decrypted = sodium.crypto_secretbox_open(key, paddedFrom, nonce);
+        var buffers = buffersFromBase64Ciphertext(from);
+        var decrypted = sodium.crypto_secretbox_open(
+                buffers.paddedCiphertext, 
+                buffers.nonce, 
+                key);
         if (decrypted)
         {
             callback (null, decrypted);
@@ -849,3 +842,8 @@ exports.decryptSenderInformation = function decryptSenderInformation(from, eph, 
     });
 }
 
+
+exports.getPublicKey = function getPublicKey ()
+{
+    return getIDKey().publicKey.toString('base64');
+}
