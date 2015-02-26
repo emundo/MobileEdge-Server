@@ -27,6 +27,10 @@ var config = {
     /* 
      * on which port is the backend server listening (TCP) 
      */
+    port : '27017',
+    /* 
+     * the name of the database to connect to
+     */
     dbName : 'keys', 
 };
 
