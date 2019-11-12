@@ -19,7 +19,7 @@
   "devDependencies": {
     "grunt": "0.4.5",
     "js-nacl": "0.6.0",
-    "mongoose": "3.8.12",
+    "mongoose": "5.7.10",
     "hkdf": "0.0.1",
     "jsdoc":"3.3.0-alpha9",
     "canonical-path":"0.0.2",
